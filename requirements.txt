@@ -2,3 +2,5 @@ requests
 pypdf>=5.6.0
 reportlab
 loguru
+mammoth
+python-docx
