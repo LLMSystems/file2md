@@ -1,4 +1,7 @@
 requests
+# pdf
 pypdf>=5.6.0
 reportlab
 loguru
+# docx
+mammoth
