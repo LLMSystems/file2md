@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 from typing import Any, Iterable, Sequence, Set, Optional, Dict
 
-from .types import ProcessResult, ProcessOptions
+from ..core.types import ProcessResult, ProcessOptions
 
 class BaseConverter(ABC):
     name: str   # ex: "pdf", "docx"

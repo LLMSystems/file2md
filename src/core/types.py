@@ -59,7 +59,6 @@ class Artifact:
 
 @dataclass(slots=True)
 class ProcessOptions:
-    # ---- 此處不強制標準化的其他選項（各 converter 自行取用） ----
     extra: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -93,7 +92,6 @@ class ProcessResult:
     def _serialize_ir(ir: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         if ir is None:
             return None
-        # 視需要處理 Path/Enum；這裡參考 Artifact.extra 的策略
         def ser(v):
             if isinstance(v, Path):
                 return str(v)
@@ -108,7 +106,6 @@ class ProcessResult:
 
     @staticmethod
     def _serialize_meta(meta: Dict[str, Any]) -> Dict[str, Any]:
-        # 同樣策略
         def ser(v):
             if isinstance(v, Path):
                 return str(v)
