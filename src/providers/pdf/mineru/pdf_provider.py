@@ -30,8 +30,6 @@ class MinerUProcessResult:
 
 class PDFMinerUProvider(IPdfProvider):
     """
-    可重用 session 的 MinerU PDF 上傳與解析客戶端。
-
     用法：
         client = PDFMinerUProvider(base_url="http://10.204.245.170:8962/", output_root="./test_outputs")
         pdfs = ["./pdfs/demo2.pdf", "./pdfs/demo3.pdf"]
@@ -150,7 +148,6 @@ class PDFMinerUProvider(IPdfProvider):
             keep_unzipped=keep_unzipped,
         )
 
-        # ---- 映射成通用結果 ----
         out: Dict[str, ProcessResult] = {}
         for src in pdfs:
             stem = src.stem
@@ -186,13 +183,10 @@ class PDFMinerUProvider(IPdfProvider):
                     mime="application/pdf"
                 ))
 
-            # 掃描輸出的圖片資產（若 MinerU 解壓/落地了）
-            # 預設嘗試在 md 檔旁的 images/ 找
             assets_dir = None
             if r.md_path:
                 assets_dir = r.md_path.parent / "images"
             else:
-                # 若沒有 md_path，推一個合理位置
                 assets_dir = (output_root / stem / "images")
 
             if assets_dir.exists():
@@ -247,11 +241,9 @@ class PDFMinerUProvider(IPdfProvider):
             if not p.exists():
                 raise PDFProcessError(f"PDF not found: {p}")
 
-        # 將輸出資料夾以「批次」為單位，避免不同批次相互覆蓋
         extract_dir = (self.output_root).resolve()
         extract_dir.mkdir(parents=True, exist_ok=True)
 
-        # 表單參數
         form = self._build_form_data(
             backend=backend,
             return_images=return_images,
@@ -266,17 +258,14 @@ class PDFMinerUProvider(IPdfProvider):
             names = ", ".join([p.name for p in pdf_paths_p])
             self.logger.info(f"Uploading {len(pdf_paths_p)} PDFs → {self.api_url} :: {names}")
 
-        # 1) 一次上傳多檔
         resp = self._post_pdf(self.api_url, pdf_paths_p, form)
         zip_bytes = self._expect_zip_response(resp, strict_content_type=self.strict_zip_content_type)
 
-        # 2) 解壓
         with ZipFile(zip_bytes, "r") as zf:
             self._safe_extractall(zf, extract_dir)
         if self.verbose:
             self.logger.info(f"Extracted batch → {extract_dir}")
 
-        # 3) 逐檔掃描結果
         results: Dict[str, MinerUProcessResult] = {}
         for p in pdf_paths_p:
             name = p.stem
@@ -284,11 +273,9 @@ class PDFMinerUProvider(IPdfProvider):
             md_path = doc_dir / f"{name}.md"
             middle_json_path = doc_dir / f"{name}_middle.json"
 
-            # read md & json
             md_content = self._read_text_if_exists(md_path)
             middle_json = self._read_json_if_exists(middle_json_path)
 
-            # bbox（可選）
             layout_pdf_path: Optional[Path] = None
             span_pdf_path: Optional[Path] = None
             if middle_json and (draw_layout_bbox or draw_span_bbox_):
@@ -314,13 +301,11 @@ class PDFMinerUProvider(IPdfProvider):
                 span_pdf=span_pdf_path,
             )
 
-        # 4) 清理（可選）
         if not keep_unzipped:
             self._safe_remove_dir(extract_dir)
 
         return results
 
-    # ---------- internals -----------
     @staticmethod
     def _build_session(
         retries: int,
