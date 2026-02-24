@@ -1,7 +1,9 @@
 requests
 beautifulsoup4
+# pdf
 pypdf>=5.6.0
 reportlab
 loguru
+# docx
 mammoth
 python-docx
