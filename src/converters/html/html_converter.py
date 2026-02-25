@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Sequence
 from src.converters.base_converter import BaseConverter
 from src.core.types import ProcessOptions, ProcessResult
 from src.core.errors import ConverterError
-from src.providers.html.base import IHtmlProvider
+from src.providers.html.html_provider import HTMLBeautifulSoupProvider
 
 
 class HTMLConverter(BaseConverter):
@@ -29,7 +29,7 @@ class HTMLConverter(BaseConverter):
 
     def __init__(
         self,
-        providers: Sequence[IHtmlProvider],
+        providers: Sequence[HTMLBeautifulSoupProvider],
         prefer: Optional[str] = None,
     ):
         """
@@ -138,7 +138,7 @@ class HTMLConverter(BaseConverter):
         # 所有 provider 都失敗
         raise ConverterError(f"All HTML providers failed. Last error: {last_err}")
 
-    def _select_providers(self, preferred: Optional[str]) -> List[IHtmlProvider]:
+    def _select_providers(self, preferred: Optional[str]) -> List[HTMLBeautifulSoupProvider]:
         """
         選擇並排序 providers，優先使用指定的 provider。
 
@@ -149,7 +149,7 @@ class HTMLConverter(BaseConverter):
 
         Returns
         -------
-        List[IHtmlProvider]
+        List[HTMLBeautifulSoupProvider]
             排序後的 provider 列表。
         """
         if preferred:
