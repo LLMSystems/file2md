@@ -1,59 +1,58 @@
+import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Dict, Any, List, Union
-import base64
+from typing import Optional, Dict, Any, List, Union, Sequence
 import hashlib
 import uuid
 import re
-from html.parser import HTMLParser
 
 import mammoth
 
+from src.core.types import ProcessOptions, ProcessResult, Artifact, ArtifactType
 
-class DOCProcessError(Exception):
-    """Raised when the DOC/DOCX processing pipeline fails."""
+
+class DOCXProcessError(Exception):
+    """Raised when the DOCX processing pipeline fails."""
 
 
 @dataclass
-class ProcessResult:
-    """處理結果資料結構"""
-    output_dir: Optional[Path]
+class MammothProcessResult:
+    """內部處理結果資料結構"""
+    extract_dir: Optional[Path]
     md_content: Optional[str]
     md_path: Optional[Path]
     images: Optional[List[Path]]
     metadata: Optional[Dict[str, Any]]
 
 
-class DOCConverter:
+class DOCXMammothProvider:
     """
-    使用 Mammoth 將 Word 文檔轉換為 Markdown 的轉換器。
+    使用 Mammoth 將 Word 文檔轉換為 Markdown 的 Provider。
 
     用法：
-        converter = DOCConverter(output_root="/tmp/doc_output")
-        result = converter.process_doc("/path/a.docx")
-        result2 = converter.process_doc("/path/b.docx")
-        converter.close()
+        provider = DOCXMammothProvider(output_root="./test_outputs")
+        docs = ["./docs/demo.docx", "./docs/report.docx"]
+        result = provider.convert_docx(docs, output_root=Path("./output"))
 
     或者：
-        with DOCConverter(output_root="/tmp/doc_output") as converter:
-            r1 = converter.process_doc("/path/a.docx")
-            r2 = converter.process_doc("/path/b.docx")
+        with DOCXMammothProvider(output_root="./test_outputs") as provider:
+            r1 = provider.convert_docx(["/path/a.docx", "/path/b.docx"], output_root=Path("./output"))
     """
+    name = "mammoth"
 
     def __init__(
         self,
         *,
-        output_root: str = "/tmp/doc_output",
         verbose: bool = True,
-        extract_images: bool = True,
-        keep_output: bool = True,
-        convert_image_format: str = "png",
-        style_map: Optional[str] = None,
-        image_alt_text: Optional[str] = "",
+        default_extract_images: bool = True,
+        default_keep_output: bool = True,
+        default_convert_image_format: str = "png",
+        default_style_map: Optional[str] = None,
+        default_image_alt_text: str = "",
     ) -> None:
         """
-        初始化 DOCConverter。
+        初始化 DOCXMammothProvider。
 
         Parameters
         ----------
@@ -61,30 +60,29 @@ class DOCConverter:
             輸出根目錄路徑。
         verbose : bool
             是否顯示詳細日誌。
-        extract_images : bool
-            是否提取並保存圖片。
-        keep_output : bool
-            是否保留輸出目錄。
-        convert_image_format : str
+        default_extract_images : bool
+            預設是否提取並保存圖片。
+        default_keep_output : bool
+            預設是否保留輸出目錄。
+        default_convert_image_format : str
             圖片輸出格式（png/jpg）。
-        style_map : Optional[str]
+        default_style_map : Optional[str]
             Mammoth 的樣式映射規則。
-        image_alt_text : Optional[str]
-            圖片的替代文字。None=使用原始 alt text，""=空白，其他=自定義文字。
+        default_image_alt_text : str
+            圖片的替代文字。""=空白，其他=自定義文字。
         """
         self.logger = self._setup_logger()
-        self.output_root = Path(output_root)
-        self.output_root.mkdir(parents=True, exist_ok=True)
+
         
         self.verbose = verbose
-        self.extract_images = extract_images
-        self.keep_output = keep_output
-        self.convert_image_format = convert_image_format
-        self.style_map = style_map
-        self.image_alt_text = image_alt_text
+        self.default_extract_images = default_extract_images
+        self.default_keep_output = default_keep_output
+        self.default_convert_image_format = default_convert_image_format
+        self.default_style_map = default_style_map
+        self.default_image_alt_text = default_image_alt_text
 
     # ---------- context manager -----------
-    def __enter__(self) -> "DOCConverter":
+    def __enter__(self) -> "DOCXMammothProvider":
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
@@ -93,7 +91,7 @@ class DOCConverter:
     def close(self) -> None:
         """清理資源（如有需要）"""
         if self.verbose:
-            self.logger.info("DOCConverter closed.")
+            self.logger.info("DOCXMammothProvider closed.")
 
     def _setup_logger(self) -> logging.Logger:
         """設定日誌記錄器"""
@@ -108,46 +106,195 @@ class DOCConverter:
         return logger
 
     # ---------- public API -----------
-    def process_doc(
+    def convert_docx(
         self,
-        doc_path: str | Path,
+        docx_paths: Sequence[Path],
+        *,
+        output_root: Path,
+        options: Optional[ProcessOptions] = None,
+    ) -> Dict[str, ProcessResult]:
+        """
+        轉換多個 DOCX 文檔為 Markdown。
+
+        Parameters
+        ----------
+        docx_paths : Sequence[Path]
+            DOCX 文檔路徑列表。
+        output_root : Path
+            輸出根目錄。
+        options : Optional[ProcessOptions]
+            處理選項。
+
+        Returns
+        -------
+        Dict[str, ProcessResult]
+            以檔案路徑為 key 的處理結果字典。
+        """
+        options = options or ProcessOptions()
+        docs = [Path(p) for p in docx_paths]
+        if not docs:
+            return {}
+
+        if isinstance(output_root, str):
+            output_root = Path(output_root)
+        self.output_root = output_root
+        self.output_root.mkdir(parents=True, exist_ok=True)
+
+        # 從 options 中提取參數
+        extract_images = options.extra.get("extract_images", self.default_extract_images)
+        keep_output = options.extra.get("keep_output", self.default_keep_output)
+        style_map = options.extra.get("style_map", self.default_style_map)
+        image_alt_text = options.extra.get("image_alt_text", self.default_image_alt_text)
+
+        # 處理文檔
+        old_map = self.convert_files(
+            docx_paths=docs,
+            extract_images=extract_images,
+            keep_output=keep_output,
+            style_map=style_map,
+            image_alt_text=image_alt_text,
+        )
+
+        # 轉換為標準的 ProcessResult 格式
+        out: Dict[str, ProcessResult] = {}
+        for src in docs:
+            stem = src.stem
+            r = old_map.get(stem)
+            if not r:
+                out[str(src)] = ProcessResult(
+                    source=src,
+                    extract_dir=output_root / stem,
+                    meta={"error": "missing result from Mammoth"}
+                )
+                continue
+
+            # 構建 artifacts 列表
+            artifacts: List[Artifact] = []
+            
+            # 添加元數據（如果有）
+            if r.metadata:
+                # 保存元數據為 JSON 文件
+                metadata_path = r.extract_dir / f"{stem}_metadata.json"
+                metadata_path.write_text(json.dumps(r.metadata, indent=2, ensure_ascii=False))
+                artifacts.append(Artifact(
+                    name="metadata",
+                    type=ArtifactType.JSON,
+                    path=metadata_path,
+                    mime="application/json"
+                ))
+
+            # 添加圖片
+            if r.images:
+                for img in r.images:
+                    artifacts.append(Artifact(
+                        name=img.name,
+                        type=ArtifactType.IMAGE,
+                        path=img
+                    ))
+
+            out[str(src)] = ProcessResult(
+                source=src,
+                md_text=r.md_content,
+                md_path=r.md_path,
+                ir=r.metadata,
+                artifacts=artifacts,
+                extract_dir=r.extract_dir,
+                meta={
+                    "provider": self.name,
+                    "extract_images": extract_images,
+                    "image_count": len(r.images) if r.images else 0,
+                },
+            )
+
+        return out
+
+    def convert_files(
+        self,
+        docx_paths: List[Path],
         *,
         extract_images: Optional[bool] = None,
         keep_output: Optional[bool] = None,
         style_map: Optional[str] = None,
         image_alt_text: Optional[str] = None,
-    ) -> ProcessResult:
+    ) -> Dict[str, MammothProcessResult]:
         """
-        處理單一 Word 文檔，轉換為 Markdown。
+        批次處理多個 Word 文檔。
 
         Parameters
         ----------
-        doc_path : str | Path
-            Word 文檔路徑（.doc 或 .docx）。
+        docx_paths : List[Path]
+            Word 文檔路徑列表。
         extract_images : Optional[bool]
-            是否提取圖片，不指定則使用初始化時的設定。
+            是否提取圖片。
         keep_output : Optional[bool]
-            是否保留輸出目錄，不指定則使用初始化時的設定。
+            是否保留輸出目錄。
         style_map : Optional[str]
-            自定義樣式映射，不指定則使用初始化時的設定。
+            自定義樣式映射。
         image_alt_text : Optional[str]
-            圖片替代文字。None=使用初始化設定，""=空白，其他=自定義文字。
+            圖片替代文字。
 
         Returns
         -------
-        ProcessResult
+        Dict[str, MammothProcessResult]
+            以檔名（不含副檔名）為 key 的結果字典。
+        """
+        # 使用預設值
+        extract_images = self.default_extract_images if extract_images is None else extract_images
+        keep_output = self.default_keep_output if keep_output is None else keep_output
+        style_map = self.default_style_map if style_map is None else style_map
+        image_alt_text = self.default_image_alt_text if image_alt_text is None else image_alt_text
+
+        # 驗證文件存在
+        for p in docx_paths:
+            if not p.exists():
+                raise DOCXProcessError(f"Document not found: {p}")
+
+        if self.verbose:
+            names = ", ".join([p.name for p in docx_paths])
+            self.logger.info(f"Processing {len(docx_paths)} documents: {names}")
+
+        results: Dict[str, MammothProcessResult] = {}
+        for p in docx_paths:
+            name = p.stem
+            try:
+                result = self._process_single_doc(
+                    p,
+                    extract_images=extract_images,
+                    keep_output=keep_output,
+                    style_map=style_map,
+                    image_alt_text=image_alt_text,
+                )
+                results[name] = result
+            except DOCXProcessError as e:
+                self.logger.error(f"Failed to process {p.name}: {e}")
+                results[name] = MammothProcessResult(
+                    extract_dir=None,
+                    md_content=None,
+                    md_path=None,
+                    images=None,
+                    metadata={"error": str(e)},
+                )
+
+        return results
+
+    # ---------- internals -----------
+    def _process_single_doc(
+        self,
+        doc_path: Path,
+        *,
+        extract_images: bool,
+        keep_output: bool,
+        style_map: Optional[str],
+        image_alt_text: str,
+    ) -> MammothProcessResult:
+        """
+        處理單一 Word 文檔，轉換為 Markdown。
+
+        Returns
+        -------
+        MammothProcessResult
             包含 markdown 內容、圖片路徑等的處理結果。
         """
-        doc_path = Path(doc_path)
-        if not doc_path.exists():
-            raise DOCProcessError(f"Document not found: {doc_path}")
-
-        # 參數合併
-        extract_images = self.extract_images if extract_images is None else extract_images
-        keep_output = self.keep_output if keep_output is None else keep_output
-        style_map = self.style_map if style_map is None else style_map
-        image_alt_text = self.image_alt_text if image_alt_text is None else image_alt_text
-
         doc_name = doc_path.stem
         output_dir = self._create_output_structure(doc_name)
 
@@ -164,7 +311,7 @@ class DOCConverter:
                 image_alt_text=image_alt_text,
             )
         except Exception as e:
-            raise DOCProcessError(f"Conversion failed for {doc_path.name}: {e}") from e
+            raise DOCXProcessError(f"Conversion failed for {doc_path.name}: {e}") from e
 
         # 2) 保存 Markdown
         md_path = output_dir / f"{doc_name}.md"
@@ -182,79 +329,16 @@ class DOCConverter:
         if not keep_output:
             self._safe_remove_dir(output_dir)
             output_dir = None
+            md_path = None
 
-        return ProcessResult(
-            output_dir=output_dir,
+        return MammothProcessResult(
+            extract_dir=output_dir,
             md_content=md_content,
-            md_path=md_path if md_path.exists() else None,
+            md_path=md_path if md_path and md_path.exists() else None,
             images=images if images else None,
             metadata=metadata,
         )
 
-    def process_docs(
-        self,
-        doc_paths: List[str | Path],
-        *,
-        extract_images: Optional[bool] = None,
-        keep_output: Optional[bool] = None,
-        style_map: Optional[str] = None,
-        image_alt_text: Optional[str] = None,
-    ) -> Dict[str, ProcessResult]:
-        """
-        批次處理多個 Word 文檔。
-
-        Parameters
-        ----------
-        doc_paths : List[str | Path]
-            Word 文檔路徑列表。
-        extract_images : Optional[bool]
-            是否提取圖片。
-        keep_output : Optional[bool]
-            是否保留輸出目錄。
-        style_map : Optional[str]
-            自定義樣式映射。
-        image_alt_text : Optional[str]
-            圖片替代文字。
-
-        Returns
-        -------
-        Dict[str, ProcessResult]
-            以檔名（不含副檔名）為 key 的結果字典。
-        """
-        doc_paths_p: List[Path] = [Path(p) for p in doc_paths]
-        for p in doc_paths_p:
-            if not p.exists():
-                raise DOCProcessError(f"Document not found: {p}")
-
-        if self.verbose:
-            names = ", ".join([p.name for p in doc_paths_p])
-            self.logger.info(f"Batch processing {len(doc_paths_p)} documents: {names}")
-
-        results: Dict[str, ProcessResult] = {}
-        for p in doc_paths_p:
-            name = p.stem
-            try:
-                result = self.process_doc(
-                    p,
-                    extract_images=extract_images,
-                    keep_output=keep_output,
-                    style_map=style_map,
-                    image_alt_text=image_alt_text,
-                )
-                results[name] = result
-            except DOCProcessError as e:
-                self.logger.error(f"Failed to process {p.name}: {e}")
-                results[name] = ProcessResult(
-                    output_dir=None,
-                    md_content=None,
-                    md_path=None,
-                    images=None,
-                    metadata={"error": str(e)},
-                )
-
-        return results
-
-    # ---------- internals -----------
     def _convert_to_markdown(
         self,
         doc_path: Path,
@@ -543,7 +627,7 @@ class DOCConverter:
             "image/bmp": "bmp",
             "image/svg+xml": "svg",
         }
-        return mime_map.get(content_type.lower(), self.convert_image_format)
+        return mime_map.get(content_type.lower(), self.default_convert_image_format)
 
     def _save_markdown(self, content: str, output_path: Path) -> None:
         """保存 Markdown 內容到檔案"""
@@ -585,7 +669,7 @@ class DOCConverter:
             core_props = doc.core_properties
             metadata.update({
                 "title": core_props.title or "",
-                "author": core_props.author or "",
+                # "author": core_props.author or "",
                 "created": str(core_props.created) if core_props.created else "",
                 "modified": str(core_props.modified) if core_props.modified else "",
             })
