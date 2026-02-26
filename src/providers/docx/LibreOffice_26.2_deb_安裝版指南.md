@@ -20,6 +20,7 @@ cd LibreOffice_*/DEBS
 
 ```bash
 apt update
+apt-get update
 apt install -y ./*.deb
 ```
 
@@ -84,6 +85,7 @@ apt install -y \
 
 ```bash
 apt install -y libcups2
+apt install -y libcairo2
 ```
 
 補完後再次驗證：
