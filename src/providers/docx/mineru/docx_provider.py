@@ -3,6 +3,7 @@ import logging
 from dataclasses import dataclass
 import mimetypes
 from io import BytesIO
+import shutil
 from pathlib import Path
 from typing import Optional, Dict, Any, Tuple, Iterable, List, Union, Sequence
 
@@ -14,6 +15,7 @@ from src.providers.pdf.mineru.utils.draw_bbox import draw_layout_bbox, draw_span
 from src.providers.base import BaseProvider
 from src.core.types import ProcessOptions, ProcessResult, Artifact, ArtifactType
 from src.providers.utils import libreoffice_files_to_pdf # 用於 ppt/docx 轉 pdf 的工具函式
+from src.providers.pdf.mineru.pdf_provider import PDFMinerUProvider
 
 class PDFProcessError(Exception):
     """Raised when the PDF processing pipeline fails."""
@@ -30,93 +32,36 @@ class MinerUProcessResult:
     span_pdf: Optional[Path]
 
 
-class PDFMinerUProvider(BaseProvider):
+class DocxMinerUProvider(PDFMinerUProvider):
     """
     用法：
-        client = PDFMinerUProvider(base_url="http://10.204.245.170:8962/", output_root="./test_outputs")
-        pdfs = ["./pdfs/demo2.pdf", "./pdfs/demo3.pdf"]
-        result = client.convert_files(pdfs, draw_layout_bbox=True, draw_span_bbox_=True)
+        client = DocxMinerUProvider(base_url="http://10.204.245.170:8962/", output_root="./test_outputs")
+        docx_files = ["./docs/demo2.docx", "./docs/demo3.docx"]
+        result = client.convert_files(docx_files, draw_layout_bbox=True, draw_span_bbox_=True)
 
     或者：
-        with PDFMinerUProvider(base_url="http://localhost:8000") as client:
-            r1 = client.convert_files(["/path/a.pdf", "/path/b.pdf"], draw_layout_bbox=True, draw_span_bbox_=True)
-            r2 = client.convert_files(["/path/b.pdf"], draw_layout_bbox=False, draw_span_bbox_=True)
+        with DocxMinerUProvider(base_url="http://localhost:8000") as client:
+            r1 = client.convert_files(["/path/a.docx", "/path/b.docx"], draw_layout_bbox=True, draw_span_bbox_=True)
+            r2 = client.convert_files(["/path/b.docx"], draw_layout_bbox=False, draw_span_bbox_=True)
     """
-    name = "mineru"
-
-    _FALLBACK_MIME: Dict[str, str] = {
-            ".pdf":  "application/pdf",
-            ".doc":  "application/msword",
-            ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            ".ppt":  "application/vnd.ms-powerpoint",
-            ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-            ".xls":  "application/vnd.ms-excel",
-            ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            ".html": "text/html",
-            ".htm":  "text/html",
-            ".md":   "text/markdown",
-            ".txt":  "text/plain",
-            ".png":  "image/png",
-            ".jpg":  "image/jpeg",
-            ".jpeg": "image/jpeg",
-            ".tif":  "image/tiff",
-            ".tiff": "image/tiff",
-            ".gif":  "image/gif",
-            ".bmp":  "image/bmp",
-            ".svg":  "image/svg+xml",
-        }
+    
     def __init__(
         self,
-        base_url: str,
-        *,
-        output_root: str = "/test",
-        api_path: str = "/file_parse",
-        timeout: Tuple[float, float] = (10, 180),
-        retries: int = 3,
-        backoff_factor: float = 0.5,
-        status_forcelist: Tuple[int, ...] = (429, 500, 502, 503, 504),
-        strict_zip_content_type: bool = False,
-        verbose: bool = True,
-        default_backend: str = "pipeline",
-        default_return_images: bool = True,
-        default_return_middle_json: bool = True,
-        default_return_model_output: bool = True,
-        default_return_content_list: bool = True,
-        default_response_format_zip: bool = True,
-        default_parse_method: str = "auto",
-    ) -> None:
-        super().__init__()
+        *args,
+        _soffice_path: str = "soffice",
+        _extra_soffice_args: Optional[List[str]] = None,
+        tmp_dir: Optional[Path] = Path("./tmp"),
+        **kwargs,
+    ):
+        # 把所有父類需要的參數原封不動轉給 super
+        super().__init__(*args, **kwargs)
 
-        self.base_url = base_url.rstrip("/")
-        self.api_url = f"{self.base_url}{api_path}"
-        self.output_root = Path(output_root)
-
-        self.timeout = timeout
-        self.strict_zip_content_type = strict_zip_content_type
-        self.verbose = verbose
-
-        self.default_backend = default_backend
-        self.default_return_images = default_return_images
-        self.default_return_middle_json = default_return_middle_json
-        self.default_return_model_output = default_return_model_output
-        self.default_return_content_list = default_return_content_list
-        self.default_response_format_zip = default_response_format_zip
-        self.default_parse_method = default_parse_method
-
-        self._session = self._build_session(retries, backoff_factor, status_forcelist)
-
-    # ---------- context manager -----------
-    def __enter__(self) -> "PDFMinerUProvider":
-        return self
-
-    def __exit__(self, exc_type, exc, tb) -> None:
-        self.close()
-
-    def close(self) -> None:
-        try:
-            self._session.close()
-        except Exception:
-            pass
+        # 自己類別需要的屬性
+        self.soffice_path = _soffice_path
+        self.extra_soffice_args = _extra_soffice_args or []
+        self.tmp_dir = Path(tmp_dir) if tmp_dir is not None else None
+        if self.tmp_dir:
+            self.tmp_dir.mkdir(parents=True, exist_ok=True)
 
     # ---------- public API -----------
     def convert_files(
@@ -127,7 +72,28 @@ class PDFMinerUProvider(BaseProvider):
         options: Optional[ProcessOptions] = None,
     ) -> Dict[str, ProcessResult]:
         options = options or ProcessOptions()
-        pdfs = [Path(p) for p in file_paths]
+
+        # 1. 先把 docx 轉成 pdf
+        pdf_paths: List[Path] = []
+        for p in file_paths:
+            if isinstance(p, str):
+                p = Path(p)
+            if p.suffix.lower() in {".docx", ".doc"}:
+                pdf_path = self.tmp_dir / (p.stem + ".pdf")
+                libreoffice_files_to_pdf(
+                    input_file=str(p),
+                    out_dir=str(self.tmp_dir),
+                    soffice_path=self.soffice_path,
+                    extra_args=self.extra_soffice_args,
+                    logger=self.logger if self.verbose else None,
+                )
+                pdf_paths.append(pdf_path)
+            elif p.suffix.lower() == ".pdf":
+                pdf_paths.append(p)
+            else:
+                self.logger.warning(f"Unsupported file type, skipping: {p}")
+
+        pdfs = [Path(p) for p in pdf_paths]
         if not pdfs:
             return {}
 
@@ -161,6 +127,13 @@ class PDFMinerUProvider(BaseProvider):
             draw_span_bbox_=draw_span_bbox,
             keep_unzipped=keep_unzipped,
         )
+
+        # delete temp pdf files
+        for p in pdf_paths:
+            try:
+                p.unlink()
+            except Exception as e:
+                self.logger.warning(f"Failed to delete temp PDF {p}: {e}")
 
         out: Dict[str, ProcessResult] = {}
         for src in pdfs:

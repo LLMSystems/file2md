@@ -15,13 +15,14 @@ from bs4 import BeautifulSoup
 
 from src.core.types import ProcessOptions, ProcessResult, Artifact, ArtifactType
 from src.core.errors import ConverterError
+from src.providers.base import BaseProvider
 
 
 class HTMLProviderError(Exception):
     """HTML Provider 專用錯誤"""
 
 
-class HTMLBeautifulSoupProvider:
+class HTMLBeautifulSoupProvider(BaseProvider):
     """
     使用 BeautifulSoup 將 HTML 轉換為 Markdown 的 Provider。
     
@@ -38,7 +39,7 @@ class HTMLBeautifulSoupProvider:
             default_extract_images=True,
             default_download_remote_images=False
         )
-        results = provider.convert_html(
+        results = provider.convert_files(
             html_paths=["sample.html", "test.html"],
             output_root=Path("/output"),
             options=ProcessOptions()
@@ -75,7 +76,8 @@ class HTMLBeautifulSoupProvider:
         default_download_remote_images : bool
             預設是否下載遠端圖片。
         """
-        self.logger = self._setup_logger()
+        super().__init__()
+
         self.output_root = Path(output_root)
         self.verbose = verbose
         
@@ -92,19 +94,7 @@ class HTMLBeautifulSoupProvider:
                 f"download_remote={default_download_remote_images})"
             )
 
-    def _setup_logger(self) -> logging.Logger:
-        """設定日誌記錄器"""
-        logger = logging.getLogger(self.__class__.__name__)
-        if not logger.handlers:
-            handler = logging.StreamHandler()
-            handler.setFormatter(logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            ))
-            logger.addHandler(handler)
-            logger.setLevel(logging.INFO)
-        return logger
-
-    def convert_html(
+    def convert_files(
         self,
         html_paths: Sequence[Path],
         *,

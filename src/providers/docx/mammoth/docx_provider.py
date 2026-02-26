@@ -1,5 +1,4 @@
 import json
-import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Dict, Any, List, Union, Sequence
@@ -10,6 +9,7 @@ import re
 import mammoth
 
 from src.core.types import ProcessOptions, ProcessResult, Artifact, ArtifactType
+from src.providers.base import BaseProvider
 
 
 class DOCXProcessError(Exception):
@@ -26,18 +26,18 @@ class MammothProcessResult:
     metadata: Optional[Dict[str, Any]]
 
 
-class DOCXMammothProvider:
+class DOCXMammothProvider(BaseProvider):
     """
     使用 Mammoth 將 Word 文檔轉換為 Markdown 的 Provider。
 
     用法：
         provider = DOCXMammothProvider(output_root="./test_outputs")
         docs = ["./docs/demo.docx", "./docs/report.docx"]
-        result = provider.convert_docx(docs, output_root=Path("./output"))
+        result = provider.convert_files(docs, output_root=Path("./output"))
 
     或者：
         with DOCXMammothProvider(output_root="./test_outputs") as provider:
-            r1 = provider.convert_docx(["/path/a.docx", "/path/b.docx"], output_root=Path("./output"))
+            r1 = provider.convert_files(["/path/a.docx", "/path/b.docx"], output_root=Path("./output"))
     """
     name = "mammoth"
 
@@ -71,9 +71,8 @@ class DOCXMammothProvider:
         default_image_alt_text : str
             圖片的替代文字。""=空白，其他=自定義文字。
         """
-        self.logger = self._setup_logger()
-
-        
+        super().__init__()
+ 
         self.verbose = verbose
         self.default_extract_images = default_extract_images
         self.default_keep_output = default_keep_output
@@ -93,20 +92,8 @@ class DOCXMammothProvider:
         if self.verbose:
             self.logger.info("DOCXMammothProvider closed.")
 
-    def _setup_logger(self) -> logging.Logger:
-        """設定日誌記錄器"""
-        logger = logging.getLogger(self.__class__.__name__)
-        if not logger.handlers:
-            handler = logging.StreamHandler()
-            handler.setFormatter(logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            ))
-            logger.addHandler(handler)
-            logger.setLevel(logging.INFO)
-        return logger
-
     # ---------- public API -----------
-    def convert_docx(
+    def convert_files(
         self,
         docx_paths: Sequence[Path],
         *,
@@ -147,7 +134,7 @@ class DOCXMammothProvider:
         image_alt_text = options.extra.get("image_alt_text", self.default_image_alt_text)
 
         # 處理文檔
-        old_map = self.convert_files(
+        old_map = self.convert_docx(
             docx_paths=docs,
             extract_images=extract_images,
             keep_output=keep_output,
@@ -208,7 +195,7 @@ class DOCXMammothProvider:
 
         return out
 
-    def convert_files(
+    def convert_docx(
         self,
         docx_paths: List[Path],
         *,

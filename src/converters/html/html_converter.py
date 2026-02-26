@@ -103,8 +103,8 @@ class HTMLConverter(BaseConverter):
         last_err: Optional[Exception] = None
         for provider in candidates:
             try:
-                # 呼叫 provider 的 convert_html 方法
-                res = provider.convert_html(
+                # 呼叫 provider 的 convert_files 方法
+                res = provider.convert_files(
                     html_paths=html_files,
                     output_root=output_root,
                     options=options

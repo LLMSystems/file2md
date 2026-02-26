@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Sequence
 from src.converters.base_converter import BaseConverter
 from src.core.types import ProcessOptions, ProcessResult
 from src.core.errors import ConverterError
-from src.providers.docx.docx_provider import DOCXMammothProvider
+from src.providers.base import BaseProvider
 
 class DOCXConverter(BaseConverter):
     """
@@ -26,7 +26,7 @@ class DOCXConverter(BaseConverter):
     # 初始化容器
     def __init__(
             self,
-            providers: Sequence[DOCXMammothProvider],
+            providers: Sequence[BaseProvider],
             prefer: Optional[str] = None,
     ):
         super().__init__()
@@ -63,7 +63,7 @@ class DOCXConverter(BaseConverter):
         last_err: Optional[Exception] = None
         for provider in candidates:
             try:
-                res = provider.convert_docx(docs, output_root=output_root, options=options)
+                res = provider.convert_files(docs, output_root=output_root, options=options)
                 # check missing result
                 missing = [p for p in docs if p not in res]
                 if missing:
@@ -87,7 +87,7 @@ class DOCXConverter(BaseConverter):
                 continue
         
 
-    def _select_providers(self, preferred: Optional[str]) -> List[DOCXMammothProvider]:
+    def _select_providers(self, preferred: Optional[str]) -> List[BaseProvider]:
         if preferred:
             ordered = [p for p in self.providers if p.name == preferred] + \
                       [p for p in self.providers if p.name != preferred]
