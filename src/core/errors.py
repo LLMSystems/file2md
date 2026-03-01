@@ -5,8 +5,3 @@ class ConverterError(Exception):
 class UnsupportedFormatError(ConverterError):
     """不支援該格式"""
 
-class TransientError(ConverterError):
-    """暫時性錯誤（如網路、服務端 5xx，可考慮重試）"""
-
-class FatalError(ConverterError):
-    """無法恢復的錯誤（格式毀損等）"""
