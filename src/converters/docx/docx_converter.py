@@ -29,7 +29,7 @@ class DOCXConverter(BaseConverter):
     def __init__(
             self,
             providers: Sequence[BaseProvider],
-            prefer: Optional[str] = None,
+            prefer: Optional[str] = "mammoth",
     ):
         super().__init__()
         self.providers = providers

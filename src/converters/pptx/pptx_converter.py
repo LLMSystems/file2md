@@ -29,7 +29,7 @@ class PPTXConverter(BaseConverter):
     def __init__(
             self,
             providers: Sequence[BaseProvider],
-            prefer: Optional[str] = None,
+            prefer: Optional[str] = "mineru",
     ):
         super().__init__()
         self.providers = providers

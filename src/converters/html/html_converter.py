@@ -28,7 +28,7 @@ class HTMLConverter(BaseConverter):
     def __init__(
         self,
         providers: Sequence[HTMLBeautifulSoupProvider],
-        prefer: Optional[str] = None,
+        prefer: Optional[str] = "beautifulsoup",
     ):
         """
         初始化 HTML 轉換器。
