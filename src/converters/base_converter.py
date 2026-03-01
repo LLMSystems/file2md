@@ -1,9 +1,10 @@
-from abc import ABC, abstractmethod
 import logging
+from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Iterable, Sequence, Set, Optional, Dict
+from typing import Any, Dict, Optional, Sequence, Set
 
-from ..core.types import ProcessResult, ProcessOptions
+from ..core.types import ProcessOptions, ProcessResult
+
 
 class BaseConverter(ABC):
     name: str   # ex: "pdf", "docx"

@@ -1,19 +1,20 @@
 import json
-import logging
-from dataclasses import dataclass
 import mimetypes
+from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import Optional, Dict, Any, Tuple, Iterable, List, Union, Sequence
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from zipfile import ZipFile
 
 import requests
 from requests.adapters import HTTPAdapter, Retry
-from zipfile import ZipFile
 
-from src.providers.pdf.mineru.utils.draw_bbox import draw_layout_bbox, draw_span_bbox
+from src.core.types import (Artifact, ArtifactType, ProcessOptions,
+                            ProcessResult)
 from src.providers.base import BaseProvider
-from src.core.types import ProcessOptions, ProcessResult, Artifact, ArtifactType
-from src.providers.utils import libreoffice_files_to_pdf # 用於 ppt/docx 轉 pdf 的工具函式
+from src.providers.pdf.mineru.utils.draw_bbox import (draw_layout_bbox,
+                                                      draw_span_bbox)
+
 
 class PDFProcessError(Exception):
     """Raised when the PDF processing pipeline fails."""

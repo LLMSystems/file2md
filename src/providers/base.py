@@ -1,9 +1,12 @@
 from __future__ import annotations
-from abc import ABC, abstractmethod
+
 import logging
+from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Dict, Sequence, Optional
+from typing import Dict, Optional, Sequence
+
 from src.core.types import ProcessOptions, ProcessResult
+
 
 class BaseProvider(ABC):
     name: str  # 例如 "mineru" / "local_ocr" / "cloud_x"

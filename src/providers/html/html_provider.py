@@ -1,20 +1,17 @@
-"""
-HTML Provider - 使用 BeautifulSoup 將 HTML 轉換為 Markdown
-"""
-import json
-import logging
 import base64
 import hashlib
-import uuid
+import json
 import re
+import uuid
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Any
+from typing import Any, Dict, List, Optional, Sequence
 from urllib.parse import urlparse
+
 import requests
 from bs4 import BeautifulSoup
 
-from src.core.types import ProcessOptions, ProcessResult, Artifact, ArtifactType
-from src.core.errors import ConverterError
+from src.core.types import (Artifact, ArtifactType, ProcessOptions,
+                            ProcessResult)
 from src.providers.base import BaseProvider
 
 

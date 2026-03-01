@@ -1,21 +1,22 @@
 import json
-import logging
-from dataclasses import dataclass
 import mimetypes
+from dataclasses import dataclass
 from io import BytesIO
-import shutil
 from pathlib import Path
-from typing import Optional, Dict, Any, Tuple, Iterable, List, Union, Sequence
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from zipfile import ZipFile
 
 import requests
 from requests.adapters import HTTPAdapter, Retry
-from zipfile import ZipFile
 
-from src.providers.pdf.mineru.utils.draw_bbox import draw_layout_bbox, draw_span_bbox
-from src.providers.base import BaseProvider
-from src.core.types import ProcessOptions, ProcessResult, Artifact, ArtifactType
-from src.providers.utils import libreoffice_files_to_pdf # 用於 ppt/docx 轉 pdf 的工具函式
+from src.core.types import (Artifact, ArtifactType, ProcessOptions,
+                            ProcessResult)
 from src.providers.pdf.mineru.pdf_provider import PDFMinerUProvider
+from src.providers.pdf.mineru.utils.draw_bbox import (draw_layout_bbox,
+                                                      draw_span_bbox)
+from src.providers.utils import \
+    libreoffice_files_to_pdf  # 用於 ppt/docx 轉 pdf 的工具函式
+
 
 class PDFProcessError(Exception):
     """Raised when the PDF processing pipeline fails."""
@@ -74,6 +75,7 @@ class DocxMinerUProvider(PDFMinerUProvider):
         options = options or ProcessOptions()
 
         # 1. 先把 docx 轉成 pdf
+        self.logger.info(f"Converting {len(file_paths)} files to PDF using LibreOffice...")
         pdf_paths: List[Path] = []
         for p in file_paths:
             if isinstance(p, str):

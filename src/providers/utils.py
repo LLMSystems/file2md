@@ -1,6 +1,7 @@
 import subprocess
 from pathlib import Path
 
+
 def libreoffice_files_to_pdf(
     input_file: str,
     out_dir: str,

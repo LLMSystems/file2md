@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Union
 from enum import Enum, auto
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 
 class ArtifactType(Enum):

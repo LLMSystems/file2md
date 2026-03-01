@@ -1,9 +1,10 @@
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
+
 from src.converters.base_converter import BaseConverter
 from src.core.types import ProcessOptions, ProcessResult
-from src.core.errors import ConverterError
 from src.providers.base import BaseProvider
+
 
 class DOCXConverter(BaseConverter):
     """

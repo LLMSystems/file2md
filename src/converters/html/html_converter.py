@@ -1,11 +1,9 @@
-"""
-HTML Converter - 協調多個 HTML Provider 進行轉換
-"""
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
+
 from src.converters.base_converter import BaseConverter
-from src.core.types import ProcessOptions, ProcessResult
 from src.core.errors import ConverterError
+from src.core.types import ProcessOptions, ProcessResult
 from src.providers.html.html_provider import HTMLBeautifulSoupProvider
 
 

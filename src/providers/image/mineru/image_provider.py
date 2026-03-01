@@ -1,19 +1,13 @@
-import json
-import logging
 from dataclasses import dataclass
-import mimetypes
-from io import BytesIO
 from pathlib import Path
-from typing import Optional, Dict, Any, Tuple, Iterable, List, Union, Sequence
-
-import requests
-from requests.adapters import HTTPAdapter, Retry
+from typing import Any, Dict, List, Optional, Sequence
 from zipfile import ZipFile
 
-from src.providers.pdf.mineru.utils.draw_bbox import draw_layout_bbox, draw_span_bbox
-from src.providers.base import BaseProvider
+
+from src.core.types import (Artifact, ArtifactType, ProcessOptions,
+                            ProcessResult)
 from src.providers.pdf.mineru.pdf_provider import PDFMinerUProvider
-from src.core.types import ProcessOptions, ProcessResult, Artifact, ArtifactType
+
 
 class ImageProcessError(Exception):
     """Raised when the PDF processing pipeline fails."""
