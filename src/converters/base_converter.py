@@ -1,9 +1,10 @@
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, Optional, Sequence, Set
+from typing import Any, Dict, List, Optional, Sequence, Set
 
-from ..core.types import ProcessOptions, ProcessResult
+from src.core.types import ProcessOptions, ProcessResult
+from src.providers.base import BaseProvider
 
 
 class BaseConverter(ABC):
@@ -47,3 +48,10 @@ class BaseConverter(ABC):
             out[str(src)] = res.to_dict()
         return out
 
+    def _select_providers(self, preferred: Optional[str]) -> List[BaseProvider]:
+        if preferred:
+            ordered = [p for p in self.providers if p.name == preferred] + \
+                      [p for p in self.providers if p.name != preferred]
+        else:
+            ordered = list(self.providers)
+        return ordered

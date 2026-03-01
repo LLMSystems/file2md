@@ -55,7 +55,7 @@ class DOCXConverter(BaseConverter):
             self.logger.warning("No supported DOCX files found in input.")
             return {}
 
-        provider_name = (options.extra.get("docx_provider") if options else None) or self._prefer
+        provider_name = (options.extra.get("provider") if options else None) or self._prefer
         candidates = self._select_providers(provider_name)
         self.logger.info(
                     "DOCX converting %d files to %s using providers: %s",
@@ -93,11 +93,3 @@ class DOCXConverter(BaseConverter):
                 last_err = e
                 continue
         raise ConverterError(f"All DOCX providers failed. Last error: {last_err}")
-
-    def _select_providers(self, preferred: Optional[str]) -> List[BaseProvider]:
-        if preferred:
-            ordered = [p for p in self.providers if p.name == preferred] + \
-                      [p for p in self.providers if p.name != preferred]
-        else:
-            ordered = list(self.providers)
-        return ordered

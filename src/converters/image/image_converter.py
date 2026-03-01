@@ -39,7 +39,7 @@ class ImageConverter(BaseConverter):
             self.logger.warning("No supported image files found in input.")
             return {}
 
-        provider_name = (options.extra.get("image_provider") if options else None) or self._prefer
+        provider_name = (options.extra.get("provider") if options else None) or self._prefer
         candidates = self._select_providers(provider_name)
         self.logger.info(
                     "Image converting %d files to %s using providers: %s",
@@ -69,11 +69,3 @@ class ImageConverter(BaseConverter):
                 last_err = e
                 continue
         raise ConverterError(f"All image providers failed. Last error: {last_err}")
-
-    def _select_providers(self, preferred: Optional[str]) -> List[BaseProvider]:
-        if preferred:
-            ordered = [p for p in self._providers if p.name == preferred] + \
-                      [p for p in self._providers if p.name != preferred]
-        else:
-            ordered = list(self._providers)
-        return ordered

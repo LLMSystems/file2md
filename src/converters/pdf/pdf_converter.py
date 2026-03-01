@@ -69,11 +69,3 @@ class PDFConverter(BaseConverter):
                 last_err = e
                 continue
         raise ConverterError(f"All PDF providers failed. Last error: {last_err}")
-
-    def _select_providers(self, preferred: Optional[str]) -> List[BaseProvider]:
-        if preferred:
-            ordered = [p for p in self._providers if p.name == preferred] + \
-                      [p for p in self._providers if p.name != preferred]
-        else:
-            ordered = list(self._providers)
-        return ordered

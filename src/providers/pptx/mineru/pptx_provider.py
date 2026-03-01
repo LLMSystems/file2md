@@ -33,15 +33,15 @@ class MinerUProcessResult:
     span_pdf: Optional[Path]
 
 
-class PPTxMinerUProvider(PDFMinerUProvider):
+class PPTXMinerUProvider(PDFMinerUProvider):
     """
     用法：
-        client = PPTxMinerUProvider(base_url="http://10.204.245.170:8962/", output_root="./test_outputs")
+        client = PPTXMinerUProvider(base_url="http://10.204.245.170:8962/", output_root="./test_outputs")
         pptx_files = ["./docs/demo2.pptx", "./docs/demo3.pptx"]
         result = client.convert_files(pptx_files, draw_layout_bbox=True, draw_span_bbox_=True)
 
     或者：
-        with PPTxMinerUProvider(base_url="http://localhost:8000") as client:
+        with PPTXMinerUProvider(base_url="http://localhost:8000") as client:
             r1 = client.convert_files(["/path/a.pptx", "/path/b.pptx"], draw_layout_bbox=True, draw_span_bbox_=True)
             r2 = client.convert_files(["/path/b.pptx"], draw_layout_bbox=False, draw_span_bbox_=True)
     """

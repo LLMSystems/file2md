@@ -89,7 +89,7 @@ class HTMLConverter(BaseConverter):
             return {}
 
         # 選擇 provider
-        provider_name = (options.extra.get("html_provider") if options else None) or self._prefer
+        provider_name = (options.extra.get("provider") if options else None) or self._prefer
         candidates = self._select_providers(provider_name)
         
         self.logger.info(
@@ -140,27 +140,3 @@ class HTMLConverter(BaseConverter):
 
         # 所有 provider 都失敗
         raise ConverterError(f"All HTML providers failed. Last error: {last_err}")
-
-    def _select_providers(self, preferred: Optional[str]) -> List[HTMLBeautifulSoupProvider]:
-        """
-        選擇並排序 providers，優先使用指定的 provider。
-
-        Parameters
-        ----------
-        preferred : Optional[str]
-            優先使用的 provider 名稱。
-
-        Returns
-        -------
-        List[HTMLBeautifulSoupProvider]
-            排序後的 provider 列表。
-        """
-        if preferred:
-            # 優先的 provider 放前面
-            ordered = [p for p in self._providers if p.name == preferred] + \
-                      [p for p in self._providers if p.name != preferred]
-        else:
-            # 保持原始順序
-            ordered = list(self._providers)
-        
-        return ordered
