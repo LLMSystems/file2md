@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Sequence
 from src.converters.base_converter import BaseConverter
 from src.core.types import ProcessOptions, ProcessResult
 from src.providers.base import BaseProvider
+from src.core.errors import ConverterError
 
 
 class DOCXConverter(BaseConverter):
@@ -65,8 +66,13 @@ class DOCXConverter(BaseConverter):
         for provider in candidates:
             try:
                 res = provider.convert_files(docs, output_root=output_root, options=options)
-                # check missing result
-                missing = [p for p in docs if p not in res]
+                
+                missing = []
+                for p in docs:
+                    file_name = p.stem
+                    if file_name not in [Path(k).stem for k in res.keys()]:
+                        missing.append(str(p))
+                
                 if missing:
                     self.logger.warning(
                         f"Provider {provider.name} did not return results for: {missing}"
@@ -86,7 +92,7 @@ class DOCXConverter(BaseConverter):
                     )
                 last_err = e
                 continue
-        
+        raise ConverterError(f"All DOCX providers failed. Last error: {last_err}")
 
     def _select_providers(self, preferred: Optional[str]) -> List[BaseProvider]:
         if preferred:

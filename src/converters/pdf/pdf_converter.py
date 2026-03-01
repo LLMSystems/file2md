@@ -50,7 +50,11 @@ class PDFConverter(BaseConverter):
         for provider in candidates:
             try:
                 res = provider.convert_files(pdfs, output_root=output_root, options=options)
-                missing = [p for p in pdfs if p not in res]
+                missing = []
+                for p in pdfs:
+                    file_name = p.stem
+                    if file_name not in [Path(k).stem for k in res.keys()]:
+                        missing.append(str(p))
                 if missing:
                     self.logger.warning(f"Provider {provider.name} did not return results for: {missing}")
                 else:

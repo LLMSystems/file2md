@@ -109,7 +109,12 @@ class HTMLConverter(BaseConverter):
                 )
                 
                 # 檢查是否所有檔案都有結果
-                missing = [p for p in html_files if str(p) not in res]
+                missing = []
+                for p in html_files:
+                    file_name = p.stem
+                    if file_name not in [Path(k).stem for k in res.keys()]:
+                        missing.append(str(p))
+                        
                 if missing:
                     self.logger.warning(
                         f"Provider {provider.name} did not return results for: {missing}"
