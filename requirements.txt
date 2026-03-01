@@ -7,3 +7,6 @@ loguru
 # docx
 mammoth
 python-docx
+# excel
+markitdown[xlsx]
+
