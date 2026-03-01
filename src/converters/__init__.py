@@ -4,6 +4,7 @@ from src.converters.image.image_converter import ImageConverter
 from src.converters.pptx.pptx_converter import PPTXConverter
 from src.converters.pdf.pdf_converter import PDFConverter
 from src.converters.excel.excel_converter import ExcelConverter
+from src.converters.txt.txt_converter import TXTConverter
 
 __all__ = [
     "DOCXConverter",
@@ -12,4 +13,5 @@ __all__ = [
     "PPTXConverter",
     "PDFConverter",
     "ExcelConverter",
+    "TXTConverter",
 ]

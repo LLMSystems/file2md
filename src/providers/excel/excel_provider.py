@@ -104,7 +104,7 @@ class ExcelProvider(BaseProvider):
                 extract_dir=r.extract_dir or (output_root / stem),
                 meta={
                     "provider": self.name,
-                    "backend": "markitdown"
+                    "backend": "excel"
                 },
             )
 
