@@ -82,7 +82,7 @@ class ExcelConverter(BaseConverter):
                         f"Provider {provider.name} successfully processed all Excel files."
                         )
                 
-                return_dict = options.extra.get("return_dict", True)
+                return_dict = options.extra.get("return_dict", False)
                 if return_dict:
                     res = self.result_map_to_plain_dict(res)
                 return res

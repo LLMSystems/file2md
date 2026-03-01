@@ -125,7 +125,7 @@ class HTMLConverter(BaseConverter):
                     )
 
                 # 轉換結果格式（str key → Path key）
-                return_dict = options.extra.get("return_dict", True)
+                return_dict = options.extra.get("return_dict", False)
                 if return_dict:
                     # 將 str key 轉換為 Path key
                     res = {Path(k): v for k, v in res.items()}
