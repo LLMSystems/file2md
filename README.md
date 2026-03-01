@@ -20,9 +20,84 @@ pip install -r requirements.txt
 
 ## 快速開始
 
-### 基本使用
+### 統一街口使用（推薦）
 
-每種格式都有對應的 Converter 和 Provider：
+File2MD 提供了統一的入口類，可以自動根據配置文件處理所有支援的文件格式：
+
+```python
+from src.app.file2md import File2MD
+
+# 方法 1: 從環境變數或默認配置文件初始化
+client = File2MD.from_env(default_path="configs/config.yaml")
+
+# 方法 2: 直接從指定配置文件初始化
+client = File2MD.from_yaml("configs/config.yaml")
+
+# 轉換單個或多個文件（自動檢測格式）
+results = client.convert([
+    "./docs/test.docx", 
+    "./data/report.xlsx", 
+    "./images/chart.png"
+])
+
+# 查看轉換結果
+for item in results:
+    print(f"檔案: {item.input_path}")
+    print(f"格式: {item.fmt}")
+    print(f"使用 Provider: {item.provider}")
+    print(f"輸出路徑: {item.result.markdown_path}")
+    print(f"成功: {item.result.success}")
+
+# 也可以指定輸出目錄
+results = client.convert(
+    input_paths=["./docs/test.docx"],
+    output_root="./custom_output"
+)
+```
+
+#### 配置文件示例
+
+在 `configs/config.yaml` 中配置各種格式的處理方式：
+
+```yaml
+file2md:
+  output_root: "./output"
+  prefer:
+    docx: "mammoth"  # 或 "mineru"
+    excel: "excel"
+    pdf: "mineru"
+    pptx: "mineru"
+    image: "mineru"
+    html: "beautifulsoup"
+    txt: "txt"
+
+providers:
+  mineru:
+    base_url: "http://localhost:8962/"
+    timeout_sec: 60
+    retry: 2
+    default_extra:
+      backend: "pipeline"
+      parse_method: "auto"
+
+converters:
+  docx:
+    mammoth:
+      extra:
+        extract_images: true
+        keep_output: true
+  pdf:
+    mineru:
+      extra:
+        return_images: true
+        keep_unzipped: true
+```
+
+完整的配置文件範例請參考 [config.example.yaml](configs/config.example.yaml)。
+
+### 基本使用（進階控制）
+
+如需更細緻的控制，每種格式都有對應的 Converter 和 Provider：
 
 #### 1. 轉換文本文件
 
@@ -207,3 +282,4 @@ result = converter.convert_files(
     )
 )
 ```
+
