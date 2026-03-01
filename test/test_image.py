@@ -1,6 +1,6 @@
+from src.converters import ImageConverter
 from src.core.types import ProcessOptions
 from src.providers.image.mineru.image_provider import ImageMinerUProvider
-from src.converters.image.image_converter import ImageConverter
 
 if __name__ == "__main__":
     provider = ImageMinerUProvider(base_url="http://10.204.245.170:8962/")
@@ -8,13 +8,13 @@ if __name__ == "__main__":
     converter = ImageConverter(providers=[provider], prefer="mineru")
     options = ProcessOptions(
         extra={
+            'provider': 'mineru', # optional, 如果沒有，會使用 converter 的 prefer 預設值
             'backend': 'pipeline',
             'parse_method': 'auto',
             'keep_unzipped': True,
             "return_images": True,
             "return_middle_json": True,
             "response_format_zip": True,
-            'return_dict': True,
         }
     )
 

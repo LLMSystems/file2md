@@ -8,6 +8,7 @@ if __name__ == "__main__":
     converter = PDFConverter(providers=[provider], prefer="mineru")
     options = ProcessOptions(
         extra={
+            'provider': 'mineru', # optional, 如果沒有，會使用 converter 的 prefer 預設值
             'backend': 'pipeline',
             'parse_method': 'auto',
             'keep_unzipped': True,
@@ -16,7 +17,6 @@ if __name__ == "__main__":
             "return_images": True,
             "return_middle_json": True,
             "response_format_zip": True,
-            'return_dict': True,
         }
     )
 
