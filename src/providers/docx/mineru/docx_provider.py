@@ -138,12 +138,12 @@ class DocxMinerUProvider(PDFMinerUProvider):
                 self.logger.warning(f"Failed to delete temp PDF {p}: {e}")
 
         out: Dict[str, ProcessResult] = {}
-        for src in pdfs:
+        for src, org in zip(pdfs, file_paths):
             stem = src.stem
             r = old_map.get(stem)
             if not r:
-                out[str(src)] = ProcessResult(
-                    source=src,
+                out[str(org)] = ProcessResult(
+                    source=org,
                     extract_dir=output_root / stem,
                     meta={"error": "missing result from MinerU"}
                 )
@@ -187,8 +187,8 @@ class DocxMinerUProvider(PDFMinerUProvider):
                             path=img
                         ))
 
-            out[str(src)] = ProcessResult(
-                source=src,
+            out[str(org)] = ProcessResult(
+                source=org,
                 md_text=r.md_content,
                 md_path=r.md_path,
                 ir=r.middle_json,
