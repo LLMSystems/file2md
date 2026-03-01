@@ -1,14 +1,15 @@
+import hashlib
 import json
+import re
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Dict, Any, List, Union, Sequence
-import hashlib
-import uuid
-import re
+from typing import Any, Dict, List, Optional, Sequence
 
 import mammoth
 
-from src.core.types import ProcessOptions, ProcessResult, Artifact, ArtifactType
+from src.core.types import (Artifact, ArtifactType, ProcessOptions,
+                            ProcessResult)
 from src.providers.base import BaseProvider
 
 
@@ -421,7 +422,19 @@ class DOCXMammothProvider(BaseProvider):
             Markdown 內容。
         """
         # 處理表格
-        html = self._convert_tables_to_markdown(html)
+        table_store: Dict[str, str] = {}
+        
+        def stash_table(m: re.Match) -> str:
+            key = f"__TABLE_BLOCK_{len(table_store)}__"
+            table_store[key] = m.group(0)
+            return key
+        
+        html = re.sub(
+            r"<table\b[^>]*>.*?</table>",
+            stash_table,
+            html,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
         
         # 處理圖片（必須在移除 HTML 標籤之前）
         html = self._convert_images_to_markdown(html)
@@ -456,76 +469,14 @@ class DOCXMammothProvider(BaseProvider):
         # 移除剩餘的 HTML 標籤
         html = re.sub(r'<[^>]+>', '', html)
         
+        # 將表格內容放回 Markdown 中
+        for key, table_html in table_store.items():
+            html = html.replace(key, "\n\n" + table_html.strip() + "\n\n")
+        
         # 清理多餘的空行
         html = re.sub(r'\n{3,}', '\n\n', html)
         
         return html.strip()
-
-    def _convert_tables_to_markdown(self, html: str) -> str:
-        """
-        將 HTML 表格轉換為 Markdown 表格格式。
-        
-        Parameters
-        ----------
-        html : str
-            包含 HTML 表格的內容。
-            
-        Returns
-        -------
-        str
-            轉換後的內容（表格為 Markdown 格式）。
-        """
-        def table_replacer(match):
-            table_html = match.group(0)
-            
-            # 提取所有行
-            rows = re.findall(r'<tr[^>]*>(.*?)</tr>', table_html, re.DOTALL)
-            if not rows:
-                return ""
-            
-            markdown_rows = []
-            is_first_row = True
-            max_cols = 0
-            
-            # 第一遍：找出最大欄數
-            for row in rows:
-                cells = re.findall(r'<t[hd][^>]*>(.*?)</t[hd]>', row, re.DOTALL)
-                max_cols = max(max_cols, len(cells))
-            
-            # 第二遍：建立表格
-            for row in rows:
-                # 提取單元格（th 或 td）
-                cells = re.findall(r'<t[hd][^>]*>(.*?)</t[hd]>', row, re.DOTALL)
-                
-                # 清理單元格內容
-                cleaned_cells = []
-                for cell in cells:
-                    # 移除 HTML 標籤，保留文字
-                    cell_text = re.sub(r'<[^>]+>', '', cell).strip()
-                    # 移除單元格內的換行，用空格替換
-                    cell_text = re.sub(r'\s+', ' ', cell_text)
-                    cleaned_cells.append(cell_text)
-                
-                # 補齊欄數（如果某行欄數較少）
-                while len(cleaned_cells) < max_cols:
-                    cleaned_cells.append("")
-                
-                if cleaned_cells:
-                    # 建立表格行
-                    markdown_row = "| " + " | ".join(cleaned_cells) + " |"
-                    markdown_rows.append(markdown_row)
-                    
-                    # 如果是第一行，添加分隔線
-                    if is_first_row:
-                        separator = "| " + " | ".join(["---"] * max_cols) + " |"
-                        markdown_rows.append(separator)
-                        is_first_row = False
-            
-            return "\n" + "\n".join(markdown_rows) + "\n"
-        
-        # 替換所有表格
-        result = re.sub(r'<table[^>]*>.*?</table>', table_replacer, html, flags=re.DOTALL)
-        return result
 
     def _convert_images_to_markdown(self, html: str) -> str:
         """
