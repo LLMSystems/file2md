@@ -114,6 +114,9 @@ class PPTXMinerUProvider(PDFMinerUProvider):
         draw_layout_bbox    = options.extra.get("draw_layout_bbox",     True)
         draw_span_bbox      = options.extra.get("draw_span_bbox",       True)
 
+        # parse image
+        parse_image = options.extra.get("parse_image", False)
+
         old_map = self.convert_pdfs(
             pdf_paths=pdf_paths,
             backend=backend,
@@ -126,6 +129,7 @@ class PPTXMinerUProvider(PDFMinerUProvider):
             draw_layout_bbox=draw_layout_bbox,
             draw_span_bbox_=draw_span_bbox,
             keep_unzipped=keep_unzipped,
+            parse_image=parse_image,
         )
 
         # delete temp pdf files

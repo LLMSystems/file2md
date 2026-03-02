@@ -11,6 +11,9 @@ from src.app.config import (
     get_mineru_base_url,
     get_mineru_retry,
     get_mineru_timeout,
+    get_llm_default_params,
+    get_llm_config_path,
+    get_llm_default_model,
     load_config_from_env,
     load_config_from_yaml,
     resolve_output_root,
@@ -122,6 +125,9 @@ def _build_provider(fmt: str, provider_name: str, cfg: File2MDConfig):
                 base_url=get_mineru_base_url(cfg),
                 timeout=get_mineru_timeout(cfg),
                 retries=get_mineru_retry(cfg),
+                default_llm_model=get_llm_default_model(cfg),
+                default_llm_params=get_llm_default_params(cfg),
+                default_llm_config_path=get_llm_config_path(cfg),
             )
         raise ProviderNotSupportedError(f"fmt=docx does not support provider={provider_name}")
 
@@ -133,6 +139,9 @@ def _build_provider(fmt: str, provider_name: str, cfg: File2MDConfig):
             base_url=get_mineru_base_url(cfg),
             timeout=get_mineru_timeout(cfg),
             retries=get_mineru_retry(cfg),
+            default_llm_model=get_llm_default_model(cfg),
+            default_llm_params=get_llm_default_params(cfg),
+            default_llm_config_path=get_llm_config_path(cfg),
         )
 
     if fmt == "pptx":
@@ -143,6 +152,9 @@ def _build_provider(fmt: str, provider_name: str, cfg: File2MDConfig):
             base_url=get_mineru_base_url(cfg),
             timeout=get_mineru_timeout(cfg),
             retries=get_mineru_retry(cfg),
+            default_llm_model=get_llm_default_model(cfg),
+            default_llm_params=get_llm_default_params(cfg),
+            default_llm_config_path=get_llm_config_path(cfg),
         )
 
     if fmt == "image":
@@ -153,6 +165,9 @@ def _build_provider(fmt: str, provider_name: str, cfg: File2MDConfig):
             base_url=get_mineru_base_url(cfg),
             timeout=get_mineru_timeout(cfg),
             retries=get_mineru_retry(cfg),
+            default_llm_model=get_llm_default_model(cfg),
+            default_llm_params=get_llm_default_params(cfg),
+            default_llm_config_path=get_llm_config_path(cfg),
         )
 
     raise ProviderNotSupportedError(f"Unknown format: {fmt}")

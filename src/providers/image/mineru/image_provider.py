@@ -52,6 +52,9 @@ class ImageMinerUProvider(PDFMinerUProvider):
         return_model_output = options.extra.get("return_model_output",  self.default_return_model_output)
         return_content_list = options.extra.get("return_content_list",  self.default_return_content_list)
         response_format_zip = options.extra.get("response_format_zip",  self.default_response_format_zip)
+        
+        # parse image
+        parse_image = options.extra.get("parse_image", False)
 
         old_map = self.convert_images(
             image_paths=pdfs,
@@ -63,6 +66,7 @@ class ImageMinerUProvider(PDFMinerUProvider):
             response_format_zip=response_format_zip,
             parse_method=parse_method,
             keep_unzipped=keep_unzipped,
+            parse_image=parse_image,
         )
 
         out: Dict[str, ProcessResult] = {}
@@ -144,6 +148,7 @@ class ImageMinerUProvider(PDFMinerUProvider):
         response_format_zip: Optional[bool] = None,
         parse_method: Optional[str] = None,
         keep_unzipped: bool = True,
+        parse_image: bool = False,
     ) -> Dict[str, MinerUProcessResult]:
         """
         一次上傳多份圖片並處理結果。

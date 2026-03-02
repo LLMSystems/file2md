@@ -12,3 +12,6 @@ markitdown[xlsx]
 # app
 pydantic
 pyyaml
+# llm
+openai
+opencc-python-reimplemented

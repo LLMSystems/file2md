@@ -84,9 +84,16 @@ class File2MDConfigRoot(BaseModel):
     prefer: Dict[str, str] = Field(default_factory=dict)
     default_extra: Dict[str, Any] = Field(default_factory=dict)
 
+class LLMConfig(BaseModel):
+    default_model: Optional[str] = None
+    default_params: Dict[str, Any] = Field(default_factory=dict)
+    default_config_path: Optional[str] = None
 
 class File2MDConfig(BaseModel):
     file2md: File2MDConfigRoot = Field(default_factory=File2MDConfigRoot)
+    
+    llm: LLMConfig = Field(default_factory=LLMConfig)
+    
     providers: ProvidersConfig = Field(default_factory=ProvidersConfig)
 
     # converters[fmt] -> ConverterConfig(providers={...})
@@ -249,3 +256,18 @@ def get_mineru_timeout(cfg: File2MDConfig) -> int:
 
 def get_mineru_retry(cfg: File2MDConfig) -> int:
     return cfg.providers.mineru.retry
+
+def get_llm_default_model(cfg: File2MDConfig) -> Optional[str]:
+    if cfg.llm.default_model:
+        return cfg.llm.default_model
+    return None
+
+def get_llm_default_params(cfg: File2MDConfig) -> Dict[str, Any]:
+    if cfg.llm.default_params:
+        return cfg.llm.default_params
+    return {}
+
+def get_llm_config_path(cfg: File2MDConfig) -> Optional[str]:
+    if cfg.llm.default_config_path:
+        return cfg.llm.default_config_path
+    return None

@@ -9,10 +9,17 @@ file2md:
     pptx: "mineru"
     image: "mineru"
 
+llm:
+  default_model: "Gemma-3-12B-IT"
+  default_config_path: "./configs/models.yaml"
+  default_params:
+    temperature: 0.2
+    max_tokens: 2000
+
 providers:
   mineru:
-    base_url: "http://localhost:8962/"
-    timeout_sec: 60
+    base_url: "http://10.204.245.170:8962/"
+    timeout_sec: 600
     retry: 2
     default_extra:
       backend: "pipeline"
@@ -42,6 +49,7 @@ converters:
         return_images: true
         return_middle_json: true
         response_format_zip: true
+        parse_image: true
   pdf:
     mineru:
       extra:
@@ -52,6 +60,7 @@ converters:
         return_images: true
         return_middle_json: true
         response_format_zip: true
+        parse_image: true
   pptx:
     mineru:
       extra:
@@ -62,6 +71,7 @@ converters:
         return_images: true
         return_middle_json: true
         response_format_zip: true
+        parse_image: false
   html:
     beautifulsoup:
       extra:
@@ -74,11 +84,10 @@ converters:
       extra:
         return_images: true
         keep_unzipped: true
-        draw_layout_bbox: true
-        draw_span_bbox: true
         return_images: true
         return_middle_json: true
         response_format_zip: true
+        parse_image: false
   excel:
     excel:
       extra: {}

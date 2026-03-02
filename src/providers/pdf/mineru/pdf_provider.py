@@ -1,5 +1,7 @@
 import json
 import mimetypes
+import asyncio
+import re
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
@@ -14,7 +16,7 @@ from src.core.types import (Artifact, ArtifactType, ProcessOptions,
 from src.providers.base import BaseProvider
 from src.providers.pdf.mineru.utils.draw_bbox import (draw_layout_bbox,
                                                       draw_span_bbox)
-
+from src.core.client.llm_client import AsyncLLMChat
 
 class PDFProcessError(Exception):
     """Raised when the PDF processing pipeline fails."""
@@ -85,6 +87,9 @@ class PDFMinerUProvider(BaseProvider):
         default_return_content_list: bool = True,
         default_response_format_zip: bool = True,
         default_parse_method: str = "auto",
+        default_llm_model: Optional[str] = None,
+        default_llm_config_path: Optional[str] = None,
+        default_llm_params: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__()
 
@@ -104,6 +109,22 @@ class PDFMinerUProvider(BaseProvider):
         self.default_response_format_zip = default_response_format_zip
         self.default_parse_method = default_parse_method
 
+        # llm 相關預設（目前沒用到，先放這）
+        self.default_llm_model = default_llm_model
+        self.default_llm_config_path = default_llm_config_path
+        self.default_llm_params = default_llm_params or {}
+        self.llm_client: Optional[AsyncLLMChat] = None
+
+        if self.default_llm_model and self.default_llm_config_path and self.default_llm_params:
+            self.llm_client = AsyncLLMChat(
+                model=self.default_llm_model,
+                config_path=self.default_llm_config_path
+            )
+            if self.verbose:
+                self.logger.info(f"Initialized LLM client with model: {self.default_llm_model}")
+        else:
+            if self.verbose:
+                self.logger.info("No default LLM model specified for MinerUProvider.")
         self._session = self._build_session(retries, backoff_factor, status_forcelist)
 
     # ---------- context manager -----------
@@ -149,6 +170,9 @@ class PDFMinerUProvider(BaseProvider):
         draw_layout_bbox    = options.extra.get("draw_layout_bbox",     True)
         draw_span_bbox      = options.extra.get("draw_span_bbox",       True)
 
+        # parse image
+        parse_image = options.extra.get("parse_image", False)
+
         old_map = self.convert_pdfs(
             pdf_paths=pdfs,
             backend=backend,
@@ -161,6 +185,7 @@ class PDFMinerUProvider(BaseProvider):
             draw_layout_bbox=draw_layout_bbox,
             draw_span_bbox_=draw_span_bbox,
             keep_unzipped=keep_unzipped,
+            parse_image=parse_image,
         )
 
         out: Dict[str, ProcessResult] = {}
@@ -244,6 +269,7 @@ class PDFMinerUProvider(BaseProvider):
         draw_layout_bbox: bool = True,
         draw_span_bbox_: bool = True,
         keep_unzipped: bool = True,
+        parse_image: bool = False,
     ) -> Dict[str, MinerUProcessResult]:
         """
         一次上傳多份 PDF 並處理結果。
@@ -279,7 +305,7 @@ class PDFMinerUProvider(BaseProvider):
             self._safe_extractall(zf, extract_dir)
         if self.verbose:
             self.logger.info(f"Extracted batch → {extract_dir}")
-
+        
         results: Dict[str, MinerUProcessResult] = {}
         for p in pdf_paths_p:
             name = p.stem
@@ -315,11 +341,140 @@ class PDFMinerUProvider(BaseProvider):
                 span_pdf=span_pdf_path,
             )
 
+        results = self.parse_images(results, parse_image)
+
         if not keep_unzipped:
             self._safe_remove_dir(extract_dir)
 
         return results
+    
+    def parse_images(self, results: Dict[str, MinerUProcessResult], parse_image: bool) -> Dict[str, MinerUProcessResult]:
+        if not parse_image:
+            return results
+        # Implement the image parsing logic here
+        if not self.llm_client:
+            if self.verbose:
+                self.logger.warning("LLM client not initialized; skipping image parsing.")
+            return results
+        # step 1: collect all images from the results
+        image_tasks = []
+        for name, res in results.items():
+            content_list_path = res.extract_dir / name /f"{name}_content_list.json"
+            # read content list if exists
+            content_list = self._read_json_if_exists(content_list_path)
+            if not content_list:
+                if self.verbose:
+                    self.logger.warning(f"No content list found for {name}; skipping image parsing.")
+                continue
+            for item in content_list:
+                if item.get("type") == "image" and "img_path" in item:
+                    image_path = res.extract_dir / name / item["img_path"]
+                    image_caption = item.get("image_caption", "") # list
+                    image_caption_str = "\n".join(image_caption) if isinstance(image_caption, list) else str(image_caption)
+                    if image_path.exists():
+                        image_tasks.append((name, image_caption_str, image_path))
+        if len(image_tasks) == 0:
+            if self.verbose:
+                self.logger.info("No images found for parsing.")
+            return results
+        
+        # step 2: parse each image with LLM
+        self.logger.info(f"Parsing {len(image_tasks)} images with LLM...")
+        parsed_results = self.parse_image_tasks(image_tasks)
 
+        # step 3: integrate parsed results back into the original results
+        for name, img_path, parsed in parsed_results:
+            if parsed is None:
+                continue
+            value = results.get(name)
+            md_content = value.md_content if value else None
+            if not md_content:
+                if self.verbose:
+                    self.logger.warning(f"No markdown content found for {name}; cannot integrate parsed image results.")
+                continue
+            """
+            replace the original image reference in md_content with the parsed result (this is just a placeholder logic, you can customize it based on how you want to integrate the parsed results)
+            ex : 
+                ![](images/b8e32d9cc62e2ffa0977d6cf98ff9d67d4cb5b151ff14961f0b15261e1e3066e.jpg)  
+            -->
+                ![](images/b8e32d9cc62e2ffa0977d6cf98ff9d67d4cb5b151ff14961f0b15261e1e3066e.jpg)  
+                **Parsed Above Image Content**: parsed_content
+            """
+            new_md_content = md_content.replace(f"![](images/{img_path.name})", f"![](images/{img_path.name})\n\n**Parsed Above Image Content**:\n\n{parsed}\n\n")
+            results[name].md_content = new_md_content
+            # update md_path content as well
+            if value.md_path and value.md_path.exists():
+                value.md_path.write_text(new_md_content, encoding="utf-8")
+
+        return results
+    
+    def parse_image_tasks(self, image_tasks: List[Tuple[str, str, Path]], batch_size: int = 5) -> None:
+        prompt = """
+你是一個專業的圖片數據解析助手。
+我將提供一張圖片與圖片標題，請你從圖片中擷取可辨識的數據與文字資訊。
+
+【請務必遵守以下規則】
+1. 僅根據圖片中「實際可見且清晰」的內容回答。
+2. 不可臆測、不推測、不補完任何圖片中沒有明確顯示的資訊。
+3. 若內容不清楚或無法辨識，請標記為「不確定」，不要給出猜測。
+4. 若圖片中沒有有效數據、沒有清楚文字、或沒有可用資訊，請直接回覆：「無」。
+5. 如果能讀取到數據，請盡可能精確擷取並結構化整理(請用表格呈現)。
+6. 如果是圖表，請分析趨勢但不要過度解讀。
+
+【輸出格式】
+- 【圖片整體描述】
+- 【可擷取的所有數據列表，請用表格呈現】（若無則寫「無」）
+- 【表格或圖表數據&趨勢分析】（若圖片非圖表則略過）
+- 【不確定或模糊區域】（若無則寫「無」）
+
+以下是圖片標題：
+圖片標題：{image_caption}
+
+請開始解析圖片中的數據。
+    """
+        async def run():
+            results = []
+            tasks = []
+
+            for i, (name, caption, img_path) in enumerate(image_tasks):
+                # 創建異步任務
+                task = asyncio.create_task(self.llm_client.vision_chat(
+                    query=prompt.format(image_caption=caption),
+                    image_path=img_path,
+                    params=self.default_llm_params,
+                ))
+                tasks.append((name, img_path, task))
+
+                # 當達到批次大小時，執行並收集結果
+                if len(tasks) >= batch_size:
+                    if self.verbose:
+                        self.logger.info(f"Processing batch of {len(tasks)} images...")
+                    results.extend(await self._process_tasks(tasks))
+                    tasks = []
+
+            # 處理剩餘的任務
+            if tasks:
+                results.extend(await self._process_tasks(tasks))
+
+            return results
+
+        # 啟動事件迴圈執行
+        return asyncio.run(run())
+
+    async def _process_tasks(self, tasks: List[Tuple[str, Path, asyncio.Task]]) -> List[Tuple[str, Path, Any]]:
+        results = []
+        for name, img_path, task in tasks:
+            try:
+                # 等待任務完成並收集結果
+                result, _ = await task
+                results.append((name, img_path, result))
+            except Exception as e:
+                # 單獨處理每個任務的異常，避免影響其他任務
+                if self.verbose:
+                    self.logger.warning(f"Failed to process image {img_path}: {e}")
+                results.append((name, img_path, None))
+        return results
+    
     @staticmethod
     def _build_session(
         retries: int,
