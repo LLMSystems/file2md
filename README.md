@@ -126,18 +126,16 @@ LLM_engines:
 
 ## 架構
 ```mermaid
-flowchart LR
-    %% 樣式
+flowchart TD
     classDef input fill:#E3F2FD,stroke:#1E88E5,color:#0D47A1,stroke-width:1px;
     classDef router fill:#EDE7F6,stroke:#8E24AA,color:#4A148C,stroke-width:1px;
     classDef converter fill:#FFF3E0,stroke:#FB8C00,color:#E65100,stroke-width:1px;
     classDef provider fill:#E8F5E9,stroke:#43A047,color:#1B5E20,stroke-width:1px;
     classDef service fill:#F3E5F5,stroke:#7B1FA2,color:#4A148C,stroke-width:1px;
+    classDef vendor fill:#FCE4EC,stroke:#AD1457,color:#880E4F,stroke-width:1px;
 
-    %% 輸入與路由
     U[User Files]:::input --> FM[File2MD Router]:::router
 
-    %% 轉檔群
     subgraph Converters
       direction TB
       DC[Docx Converter]:::converter
@@ -157,7 +155,6 @@ flowchart LR
     FM --> PTC
     FM --> TC
 
-    %% Provider 群（主導流程）
     subgraph Providers
       direction TB
       MUP[MinerU Provider]:::provider
@@ -167,22 +164,29 @@ flowchart LR
       TP[TXT Provider]:::provider
     end
 
-    %% 服務（被依賴）
     subgraph Image_Parse[Image Parse Services]
       direction TB
       IP[Image Parse Core]:::service
-      LLM[LLM Client]:::service
-      IP -. uses .-> LLM
+
+      subgraph LLM_Client[供應商 / 模型舉例]
+        direction TB
+        AOAI[OpenAI • GPT‑4o]:::vendor
+        AN[Anthropic • Claude 4.5]:::vendor
+        GGL[Google • Gemini 3]:::vendor
+        OLL[自託管 / 本地]:::vendor
+      end
+
+      IP -. uses .-> LLM_Client
     end
 
-    %% 一般文本類：直接到專屬 Provider
+    %% 一般文本類
     EC --> EP
     HC --> HP
     TC --> TP
 
-    %% DOCX：可直接由 Provider 處理（必要時 Provider 內部再呼叫 Image Parse）
+    %% DOCX（Provider 主導）
 
-    %% 影像型：直接交由 Provider；Provider 視需求呼叫 Image Parse Core
+    %% 影像/版面類（先 Provider，再視需求呼叫 IP）
     IC --> MUP
     PC --> MUP
     PTC --> MUP
@@ -190,10 +194,11 @@ flowchart LR
     DC --> MUP
     DC --> MP
 
-    %% Provider 對 Image Parse Core 的依賴（虛線表示內部依賴關係）
+    %% 依賴關係
     MUP -. calls .-> IP
     MP  -. calls .-> IP
 ```
+
 
 ### 基本使用（進階控制）
 
