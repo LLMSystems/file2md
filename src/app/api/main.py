@@ -91,7 +91,7 @@ async def convert(
             
         async with limiter:
             try:
-                results = file2md.convert(
+                results = await file2md.aconvert(
                     input_paths=saved_paths,
                     output_root=effective_output_root
                 )

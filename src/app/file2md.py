@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 import mimetypes
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
-
+from fastapi.concurrency import run_in_threadpool
 import requests
 
 from src.app.config import (File2MDConfig, build_process_extra,
@@ -279,6 +281,8 @@ class File2MD:
         owns_llm_client: Optional[bool] = None,
     ):
         self.cfg = cfg
+        inflight = int(os.getenv("FILE2MD_MAX_CONVERT_INFLIGHT", "4"))
+        self._convert_sem = asyncio.Semaphore(inflight)
         if mineru_session is None:
             mineru_session = build_session(
                 retries=get_mineru_retry(cfg),
@@ -388,3 +392,57 @@ class File2MD:
                     results.append(ConvertItemResult(p, fmt, provider, batch_result))  # type: ignore[arg-type]
 
         return results
+    
+    async def aconvert(self, input_paths, output_root=None, options=None, runtime_extra=None):
+        out_root = resolve_output_root(self.cfg, output_root)
+
+        groups = {}
+        for p in input_paths:
+            fmt = detect_format(p)
+            provider = resolve_prefer_provider(self.cfg, fmt)
+            if not provider:
+                raise ProviderNotConfiguredError(f"No prefer provider configured for fmt={fmt}.")
+            groups.setdefault((fmt, provider), []).append(p)
+
+        def _run_one_group(fmt, provider, paths):
+            prov = _build_provider(fmt, provider, self.cfg,
+                                   mineru_session=self._mineru_session,
+                                   llm_client=self._llm_client)
+            conv = _build_converter(fmt, provider, prov)
+
+            extra = build_process_extra(self.cfg, fmt=fmt, provider=provider, runtime_extra=runtime_extra)
+            opts = _normalize_process_options(options, extra)
+
+            batch_result = conv.convert_files(input_paths=paths, output_root=out_root, options=opts)
+
+            results = []
+            if isinstance(batch_result, list):
+                if len(batch_result) == len(paths):
+                    for p, r in zip(paths, batch_result):
+                        results.append(ConvertItemResult(p, fmt, provider, r))
+                else:
+                    for p in paths:
+                        results.append(ConvertItemResult(p, fmt, provider, batch_result))
+            elif isinstance(batch_result, dict):
+                for p in paths:
+                    r = batch_result.get(p) or batch_result.get(str(Path(p)))
+                    if r is None:
+                        r = batch_result
+                    results.append(ConvertItemResult(p, fmt, provider, r))
+            else:
+                for p in paths:
+                    results.append(ConvertItemResult(p, fmt, provider, batch_result))
+
+            return results
+
+        async def _job(fmt, provider, paths):
+            async with self._convert_sem:
+                return await run_in_threadpool(_run_one_group, fmt, provider, paths)
+
+        tasks = [_job(fmt, provider, paths) for (fmt, provider), paths in groups.items()]
+        nested = await asyncio.gather(*tasks)
+
+        out = []
+        for part in nested:
+            out.extend(part)
+        return out
