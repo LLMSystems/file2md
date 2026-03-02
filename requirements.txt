@@ -15,3 +15,7 @@ pyyaml
 # llm
 openai
 opencc-python-reimplemented
+# api
+fastapi
+uvicorn
+python-multipart

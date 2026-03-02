@@ -312,9 +312,10 @@ class File2MD:
         default_path: Optional[str] = None,
         *,
         mineru_session: Optional[requests.Session] = None,
+        llm_client: Optional[AsyncLLMChat] = None,
     ) -> "File2MD":
         cfg = load_config_from_env(default_path=default_path)
-        return cls(cfg, mineru_session=mineru_session)
+        return cls(cfg, mineru_session=mineru_session, llm_client=llm_client)
 
     @classmethod
     def from_yaml(
@@ -322,9 +323,10 @@ class File2MD:
         path: str,
         *,
         mineru_session: Optional[requests.Session] = None,
+        llm_client: Optional[AsyncLLMChat] = None,
     ) -> "File2MD":
         cfg = load_config_from_yaml(path)
-        return cls(cfg, mineru_session=mineru_session)
+        return cls(cfg, mineru_session=mineru_session, llm_client=llm_client)
 
     def convert(
         self,
