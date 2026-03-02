@@ -1,17 +1,10 @@
-import json
-import mimetypes
 from dataclasses import dataclass
-from io import BytesIO
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
-from zipfile import ZipFile
+from typing import Dict, List, Optional, Sequence
 
-import requests
 from markitdown import MarkItDown
-from requests.adapters import HTTPAdapter, Retry
 
-from src.core.types import (ProcessOptions,
-                            ProcessResult)
+from src.core.types import ProcessOptions, ProcessResult
 from src.providers.base import BaseProvider
 
 

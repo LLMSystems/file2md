@@ -1,7 +1,6 @@
+import asyncio
 import json
 import mimetypes
-import asyncio
-import re
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
@@ -11,12 +10,13 @@ from zipfile import ZipFile
 import requests
 from requests.adapters import HTTPAdapter, Retry
 
+from src.core.client.llm_client import AsyncLLMChat
 from src.core.types import (Artifact, ArtifactType, ProcessOptions,
                             ProcessResult)
 from src.providers.base import BaseProvider
 from src.providers.pdf.mineru.utils.draw_bbox import (draw_layout_bbox,
                                                       draw_span_bbox)
-from src.core.client.llm_client import AsyncLLMChat
+
 
 class PDFProcessError(Exception):
     """Raised when the PDF processing pipeline fails."""
@@ -90,6 +90,8 @@ class PDFMinerUProvider(BaseProvider):
         default_llm_model: Optional[str] = None,
         default_llm_config_path: Optional[str] = None,
         default_llm_params: Optional[Dict[str, Any]] = None,
+        llm_client: Optional[AsyncLLMChat] = None,
+        session: Optional[requests.Session] = None,
     ) -> None:
         super().__init__()
 
@@ -110,12 +112,12 @@ class PDFMinerUProvider(BaseProvider):
         self.default_parse_method = default_parse_method
 
         # llm 相關預設（目前沒用到，先放這）
+        self.llm_client = llm_client
         self.default_llm_model = default_llm_model
         self.default_llm_config_path = default_llm_config_path
         self.default_llm_params = default_llm_params or {}
-        self.llm_client: Optional[AsyncLLMChat] = None
 
-        if self.default_llm_model and self.default_llm_config_path and self.default_llm_params:
+        if self.llm_client is None and self.default_llm_model and self.default_llm_config_path:
             self.llm_client = AsyncLLMChat(
                 model=self.default_llm_model,
                 config_path=self.default_llm_config_path
@@ -124,9 +126,22 @@ class PDFMinerUProvider(BaseProvider):
                 self.logger.info(f"Initialized LLM client with model: {self.default_llm_model}")
         else:
             if self.verbose:
-                self.logger.info("No default LLM model specified for MinerUProvider.")
-        self._session = self._build_session(retries, backoff_factor, status_forcelist)
-
+                if llm_client is not None:
+                    self.logger.info("LLM client provided directly to PDFMinerUProvider.")
+                else:
+                    self.logger.info("No default LLM model specified for MinerUProvider.")
+                
+        if session is not None:
+            if self.verbose:
+                self.logger.info("Using provided requests.Session for MinerUProvider.")
+            self._session = session
+            self._owns_session = False
+        else:
+            if self.verbose:
+                self.logger.info(f"Creating new requests.Session for MinerUProvider with retries={retries}, backoff_factor={backoff_factor}, status_forcelist={status_forcelist}")
+            self._session = self._build_session(retries, backoff_factor, status_forcelist)
+            self._owns_session = True
+            
     # ---------- context manager -----------
     def __enter__(self) -> "PDFMinerUProvider":
         return self

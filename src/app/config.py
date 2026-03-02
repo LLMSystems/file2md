@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Any, Dict, Mapping, Optional
 
 import yaml
-from pydantic import model_validator
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import (BaseModel, Field, ValidationError, field_validator,
+                      model_validator)
 
 
 def _coerce_dict(v: Any) -> Dict[str, Any]:

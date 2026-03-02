@@ -5,20 +5,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from src.app.config import (
-    File2MDConfig,
-    build_process_extra,
-    get_mineru_base_url,
-    get_mineru_retry,
-    get_mineru_timeout,
-    get_llm_default_params,
-    get_llm_config_path,
-    get_llm_default_model,
-    load_config_from_env,
-    load_config_from_yaml,
-    resolve_output_root,
-    resolve_prefer_provider,
-)
+import requests
+
+from src.app.config import (File2MDConfig, build_process_extra,
+                            get_llm_config_path, get_llm_default_model,
+                            get_llm_default_params, get_mineru_base_url,
+                            get_mineru_retry, get_mineru_timeout,
+                            load_config_from_env, load_config_from_yaml,
+                            resolve_output_root, resolve_prefer_provider)
+from src.app.http import build_llm_chat, build_session
+from src.core.client.llm_client import AsyncLLMChat
 from src.core.types import ProcessOptions, ProcessResult
 
 
@@ -89,7 +85,7 @@ def detect_format(path: str | Path) -> str:
 # Provider factory
 # ---------------------------
 
-def _build_provider(fmt: str, provider_name: str, cfg: File2MDConfig):
+def _build_provider(fmt: str, provider_name: str, cfg: File2MDConfig, mineru_session: Optional[requests.Session] = None, llm_client: Optional[AsyncLLMChat] = None):
     """
     Instantiate provider instance based on (format, provider_name).
     No fallback here.
@@ -117,14 +113,17 @@ def _build_provider(fmt: str, provider_name: str, cfg: File2MDConfig):
 
     if fmt == "docx":
         if provider_name == "mammoth":
-            from src.providers.docx.mammoth.docx_provider import DOCXMammothProvider
+            from src.providers.docx.mammoth.docx_provider import \
+                DOCXMammothProvider
             return DOCXMammothProvider(
                 default_llm_model=get_llm_default_model(cfg),
                 default_llm_params=get_llm_default_params(cfg),
                 default_llm_config_path=get_llm_config_path(cfg),
+                llm_client=llm_client,
             )
         if provider_name == "mineru":
-            from src.providers.docx.mineru.docx_provider import DocxMinerUProvider
+            from src.providers.docx.mineru.docx_provider import \
+                DocxMinerUProvider
             return DocxMinerUProvider(
                 base_url=get_mineru_base_url(cfg),
                 timeout=get_mineru_timeout(cfg),
@@ -132,6 +131,8 @@ def _build_provider(fmt: str, provider_name: str, cfg: File2MDConfig):
                 default_llm_model=get_llm_default_model(cfg),
                 default_llm_params=get_llm_default_params(cfg),
                 default_llm_config_path=get_llm_config_path(cfg),
+                llm_client=llm_client,
+                session=mineru_session,
             )
         raise ProviderNotSupportedError(f"fmt=docx does not support provider={provider_name}")
 
@@ -146,6 +147,8 @@ def _build_provider(fmt: str, provider_name: str, cfg: File2MDConfig):
             default_llm_model=get_llm_default_model(cfg),
             default_llm_params=get_llm_default_params(cfg),
             default_llm_config_path=get_llm_config_path(cfg),
+            llm_client=llm_client,
+            session=mineru_session,
         )
 
     if fmt == "pptx":
@@ -159,12 +162,15 @@ def _build_provider(fmt: str, provider_name: str, cfg: File2MDConfig):
             default_llm_model=get_llm_default_model(cfg),
             default_llm_params=get_llm_default_params(cfg),
             default_llm_config_path=get_llm_config_path(cfg),
+            llm_client=llm_client,
+            session=mineru_session,
         )
 
     if fmt == "image":
         if provider_name != "mineru":
             raise ProviderNotSupportedError(f"fmt=image does not support provider={provider_name}")
-        from src.providers.image.mineru.image_provider import ImageMinerUProvider
+        from src.providers.image.mineru.image_provider import \
+            ImageMinerUProvider
         return ImageMinerUProvider(
             base_url=get_mineru_base_url(cfg),
             timeout=get_mineru_timeout(cfg),
@@ -172,6 +178,8 @@ def _build_provider(fmt: str, provider_name: str, cfg: File2MDConfig):
             default_llm_model=get_llm_default_model(cfg),
             default_llm_params=get_llm_default_params(cfg),
             default_llm_config_path=get_llm_config_path(cfg),
+            llm_client=llm_client,
+            session=mineru_session,
         )
 
     raise ProviderNotSupportedError(f"Unknown format: {fmt}")
@@ -261,18 +269,62 @@ class File2MD:
       - run convert_files
     """
 
-    def __init__(self, cfg: File2MDConfig):
+    def __init__(
+        self, 
+        cfg: File2MDConfig,
+        *,
+        mineru_session: Optional[requests.Session] = None,
+        owns_mineru_session: Optional[bool] = None,
+        llm_client: Optional[AsyncLLMChat] = None,
+        owns_llm_client: Optional[bool] = None,
+    ):
         self.cfg = cfg
-
+        if mineru_session is None:
+            mineru_session = build_session(
+                retries=get_mineru_retry(cfg),
+            )
+            self._owns_mineru_session = True if owns_mineru_session is None else owns_mineru_session
+        else:
+            self._owns_mineru_session = False if owns_mineru_session is None else owns_mineru_session
+        self._mineru_session = mineru_session
+        
+        if llm_client is None and get_llm_default_model(cfg) and get_llm_config_path(cfg):
+            llm_client = build_llm_chat(
+                model=get_llm_default_model(cfg),
+                config_path=get_llm_config_path(cfg),
+            )
+            self._owns_llm_client = True if owns_llm_client is None else owns_llm_client
+        else:
+            self._owns_llm_client = False if owns_llm_client is None else owns_llm_client
+        self._llm_client = llm_client
+        
+    def close(self) -> None:
+        """Call this on API shutdown if File2MD owns the session."""
+        if getattr(self, "_owns_mineru_session", False):
+            try:
+                self._mineru_session.close()
+            except Exception:
+                pass
+                        
     @classmethod
-    def from_env(cls, default_path: Optional[str] = None) -> "File2MD":
+    def from_env(
+        cls, 
+        default_path: Optional[str] = None,
+        *,
+        mineru_session: Optional[requests.Session] = None,
+    ) -> "File2MD":
         cfg = load_config_from_env(default_path=default_path)
-        return cls(cfg)
+        return cls(cfg, mineru_session=mineru_session)
 
     @classmethod
-    def from_yaml(cls, path: str) -> "File2MD":
+    def from_yaml(
+        cls, 
+        path: str,
+        *,
+        mineru_session: Optional[requests.Session] = None,
+    ) -> "File2MD":
         cfg = load_config_from_yaml(path)
-        return cls(cfg)
+        return cls(cfg, mineru_session=mineru_session)
 
     def convert(
         self,
@@ -298,7 +350,7 @@ class File2MD:
         results: List[ConvertItemResult] = []
 
         for (fmt, provider), paths in groups.items():
-            prov = _build_provider(fmt, provider, self.cfg)
+            prov = _build_provider(fmt, provider, self.cfg, mineru_session=self._mineru_session, llm_client=self._llm_client)
             conv = _build_converter(fmt, provider, prov)
 
             extra = build_process_extra(

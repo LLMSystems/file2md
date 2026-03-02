@@ -1,18 +1,18 @@
+import asyncio
 import hashlib
 import json
-import asyncio
 import re
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import mammoth
 
+from src.core.client.llm_client import AsyncLLMChat
 from src.core.types import (Artifact, ArtifactType, ProcessOptions,
                             ProcessResult)
 from src.providers.base import BaseProvider
-from src.core.client.llm_client import AsyncLLMChat
 
 
 class DOCXProcessError(Exception):
@@ -56,6 +56,7 @@ class DOCXMammothProvider(BaseProvider):
         default_llm_model: Optional[str] = None,
         default_llm_config_path: Optional[str] = None,
         default_llm_params: Optional[Dict[str, Any]] = None,
+        llm_client: Optional[AsyncLLMChat] = None,
     ) -> None:
         """
         初始化 DOCXMammothProvider。
@@ -87,12 +88,13 @@ class DOCXMammothProvider(BaseProvider):
         self.default_image_alt_text = default_image_alt_text
 
         # llm 相關預設（目前沒用到，先放這）
+        self.llm_client = llm_client
         self.default_llm_model = default_llm_model
         self.default_llm_config_path = default_llm_config_path
         self.default_llm_params = default_llm_params or {}
         self.llm_client: Optional[AsyncLLMChat] = None
 
-        if self.default_llm_model and self.default_llm_config_path and self.default_llm_params:
+        if self.llm_client is None and self.default_llm_model and self.default_llm_config_path:
             self.llm_client = AsyncLLMChat(
                 model=self.default_llm_model,
                 config_path=self.default_llm_config_path
@@ -101,7 +103,7 @@ class DOCXMammothProvider(BaseProvider):
                 self.logger.info(f"Initialized LLM client with model: {self.default_llm_model}")
         else:
             if self.verbose:
-                self.logger.info("No default LLM model specified for MinerUProvider.")
+                self.logger.info("No default LLM model specified for DOCXMammothProvider.")
 
     # ---------- context manager -----------
     def __enter__(self) -> "DOCXMammothProvider":
