@@ -15,7 +15,7 @@ from src.providers.pdf.mineru.pdf_provider import PDFMinerUProvider
 from src.providers.pdf.mineru.utils.draw_bbox import (draw_layout_bbox,
                                                       draw_span_bbox)
 from src.providers.utils import \
-    libreoffice_files_to_pdf  # 用於 ppt/docx 轉 pdf 的工具函式
+    batch_convert_to_pdf  # 用於 ppt/docx 轉 pdf 的工具函式
 
 
 class PDFProcessError(Exception):
@@ -72,29 +72,29 @@ class PPTXMinerUProvider(PDFMinerUProvider):
     ) -> Dict[str, ProcessResult]:
         options = options or ProcessOptions()
 
+        if isinstance(file_paths, list):
+            file_paths = [Path(p) for p in file_paths]
+
         # 1. 先把 pptx 轉成 pdf
         self.logger.info(f"Converting {len(file_paths)} files to PDF using LibreOffice...")
-        pdf_paths: List[Path] = []
-        for p in file_paths:
-            if isinstance(p, str):
-                p = Path(p)
-            if p.suffix.lower() in {".pptx", ".ppt"}:
-                pdf_path = self.tmp_dir / (p.stem + ".pdf")
-                libreoffice_files_to_pdf(
-                    input_file=str(p),
-                    out_dir=str(self.tmp_dir),
-                    soffice_path=self.soffice_path,
-                    extra_args=self.extra_soffice_args,
-                    logger=self.logger if self.verbose else None,
-                )
-                pdf_paths.append(pdf_path)
-            elif p.suffix.lower() == ".pdf":
-                pdf_paths.append(p)
-            else:
-                self.logger.warning(f"Unsupported file type, skipping: {p}")
+        pptx_files = [str(p) for p in file_paths if p.suffix.lower() in {".pptx", ".ppt"}]
+        
+        successes, failures = batch_convert_to_pdf(
+            files=pptx_files,
+            out_dir=str(self.tmp_dir),
+            soffice_path=self.soffice_path,
+            max_workers=4, 
+            extra_args=self.extra_soffice_args,
+            logger=self.logger if self.verbose else None,
+        )
 
-        pdfs = [Path(p) for p in pdf_paths]
-        if not pdfs:
+        pdf_paths = [Path(p) for p in successes]
+        self.logger.info(f"Successfully converted {len(pdf_paths)} files to PDF.pdf_paths: {pdf_paths}")
+
+        for failed_file, error in failures:
+            self.logger.warning(f"Failed to convert {failed_file} to PDF: {error}")
+
+        if not pdf_paths:
             return {}
 
         self.output_root = output_root or self.output_root
@@ -115,7 +115,7 @@ class PPTXMinerUProvider(PDFMinerUProvider):
         draw_span_bbox      = options.extra.get("draw_span_bbox",       True)
 
         old_map = self.convert_pdfs(
-            pdf_paths=pdfs,
+            pdf_paths=pdf_paths,
             backend=backend,
             return_images=return_images,
             return_middle_json=return_middle_json,
@@ -136,7 +136,7 @@ class PPTXMinerUProvider(PDFMinerUProvider):
                 self.logger.warning(f"Failed to delete temp PDF {p}: {e}")
 
         out: Dict[str, ProcessResult] = {}
-        for src, org in zip(pdfs, file_paths):
+        for src, org in zip(pdf_paths, file_paths):
             stem = src.stem
             r = old_map.get(stem)
             if not r:
