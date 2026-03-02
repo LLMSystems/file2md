@@ -121,6 +121,11 @@ LLM_engines:
         azure_api_key: 
         azure_api_version: 
         translate_to_cht: True
+    Gemma-3-12B-IT:
+        model: "gemma-3-12b-it"
+        local_api_key: "Empty"
+        local_base_url: "http://10.204.245.170:8963/v1"
+        translate_to_cht: True # optional, whether to translate the input to Chinese Traditional
 ```
 完整的配置文件範例請參考 [models.example.yaml](configs/models.example.yaml)。
 
