@@ -118,7 +118,11 @@ def _build_provider(fmt: str, provider_name: str, cfg: File2MDConfig):
     if fmt == "docx":
         if provider_name == "mammoth":
             from src.providers.docx.mammoth.docx_provider import DOCXMammothProvider
-            return DOCXMammothProvider()
+            return DOCXMammothProvider(
+                default_llm_model=get_llm_default_model(cfg),
+                default_llm_params=get_llm_default_params(cfg),
+                default_llm_config_path=get_llm_config_path(cfg),
+            )
         if provider_name == "mineru":
             from src.providers.docx.mineru.docx_provider import DocxMinerUProvider
             return DocxMinerUProvider(

@@ -203,6 +203,8 @@ class ImageMinerUProvider(PDFMinerUProvider):
                 middle_json_path=middle_json_path if middle_json_path.exists() else None,
             )
 
+        results = self.parse_images(results, parse_image)
+
         if not keep_unzipped:
             self._safe_remove_dir(extract_dir)
 

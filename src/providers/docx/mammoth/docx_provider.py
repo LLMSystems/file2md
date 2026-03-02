@@ -1,16 +1,18 @@
 import hashlib
 import json
+import asyncio
 import re
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import mammoth
 
 from src.core.types import (Artifact, ArtifactType, ProcessOptions,
                             ProcessResult)
 from src.providers.base import BaseProvider
+from src.core.client.llm_client import AsyncLLMChat
 
 
 class DOCXProcessError(Exception):
@@ -51,6 +53,9 @@ class DOCXMammothProvider(BaseProvider):
         default_convert_image_format: str = "png",
         default_style_map: Optional[str] = None,
         default_image_alt_text: str = "",
+        default_llm_model: Optional[str] = None,
+        default_llm_config_path: Optional[str] = None,
+        default_llm_params: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         初始化 DOCXMammothProvider。
@@ -80,6 +85,23 @@ class DOCXMammothProvider(BaseProvider):
         self.default_convert_image_format = default_convert_image_format
         self.default_style_map = default_style_map
         self.default_image_alt_text = default_image_alt_text
+
+        # llm 相關預設（目前沒用到，先放這）
+        self.default_llm_model = default_llm_model
+        self.default_llm_config_path = default_llm_config_path
+        self.default_llm_params = default_llm_params or {}
+        self.llm_client: Optional[AsyncLLMChat] = None
+
+        if self.default_llm_model and self.default_llm_config_path and self.default_llm_params:
+            self.llm_client = AsyncLLMChat(
+                model=self.default_llm_model,
+                config_path=self.default_llm_config_path
+            )
+            if self.verbose:
+                self.logger.info(f"Initialized LLM client with model: {self.default_llm_model}")
+        else:
+            if self.verbose:
+                self.logger.info("No default LLM model specified for MinerUProvider.")
 
     # ---------- context manager -----------
     def __enter__(self) -> "DOCXMammothProvider":
@@ -134,6 +156,9 @@ class DOCXMammothProvider(BaseProvider):
         style_map = options.extra.get("style_map", self.default_style_map)
         image_alt_text = options.extra.get("image_alt_text", self.default_image_alt_text)
 
+        # parse image
+        parse_image = options.extra.get("parse_image", False)
+
         # 處理文檔
         old_map = self.convert_docx(
             docx_paths=docs,
@@ -141,6 +166,7 @@ class DOCXMammothProvider(BaseProvider):
             keep_output=keep_output,
             style_map=style_map,
             image_alt_text=image_alt_text,
+            parse_image=parse_image,
         )
 
         # 轉換為標準的 ProcessResult 格式
@@ -204,6 +230,7 @@ class DOCXMammothProvider(BaseProvider):
         keep_output: Optional[bool] = None,
         style_map: Optional[str] = None,
         image_alt_text: Optional[str] = None,
+        parse_image: Optional[bool] = None,
     ) -> Dict[str, MammothProcessResult]:
         """
         批次處理多個 Word 文檔。
@@ -220,6 +247,8 @@ class DOCXMammothProvider(BaseProvider):
             自定義樣式映射。
         image_alt_text : Optional[str]
             圖片替代文字。
+        parse_image : Optional[bool]
+            是否解析圖片。
 
         Returns
         -------
@@ -263,9 +292,137 @@ class DOCXMammothProvider(BaseProvider):
                     metadata={"error": str(e)},
                 )
 
+        results = self.parse_images(results, parse_image)
+
         return results
 
     # ---------- internals -----------
+    def parse_images(self, results: Dict[str, MammothProcessResult], parse_image: bool) -> Dict[str, MammothProcessResult]:
+        if not parse_image:
+            return results
+        # Implement the image parsing logic here
+        if not self.llm_client:
+            if self.verbose:
+                self.logger.warning("LLM client not initialized; skipping image parsing.")
+            return results
+        # step 1: collect all images from the results
+        image_tasks = []
+        for name, res in results.items():
+            for image_path in res.images:
+                if image_path.exists():
+                    image_tasks.append((name, "", image_path))
+        if len(image_tasks) == 0:
+            if self.verbose:
+                self.logger.info("No images found for parsing.")
+            return results
+        
+        # step 2: parse each image with LLM
+        self.logger.info(f"Parsing {len(image_tasks)} images with LLM...")
+        parsed_results = self.parse_image_tasks(image_tasks)
+
+        # step 3: integrate parsed results back into the original results
+        for name, img_path, parsed in parsed_results:
+            if parsed is None:
+                continue
+            value = results.get(name)
+            md_content = value.md_content if value else None
+            if not md_content:
+                if self.verbose:
+                    self.logger.warning(f"No markdown content found for {name}; cannot integrate parsed image results.")
+                continue
+            """
+            replace the original image reference in md_content with the parsed result (this is just a placeholder logic, you can customize it based on how you want to integrate the parsed results)
+            ex : 
+                ![](images/b8e32d9cc62e2ffa0977d6cf98ff9d67d4cb5b151ff14961f0b15261e1e3066e.jpg)  
+            -->
+                ![](images/b8e32d9cc62e2ffa0977d6cf98ff9d67d4cb5b151ff14961f0b15261e1e3066e.jpg)  
+                **Parsed Above Image Content**: parsed_content
+            """
+            new_md_content = md_content.replace(f"![](images/{img_path.name})", f"![](images/{img_path.name})\n\n**Parsed Above Image Content**:\n\n{parsed}\n\n")
+            results[name].md_content = new_md_content
+            # update md_path content as well
+            if value.md_path and value.md_path.exists():
+                value.md_path.write_text(new_md_content, encoding="utf-8")
+
+        return results
+    
+    def parse_image_tasks(self, image_tasks: List[Tuple[str, str, Path]], batch_size: int = 5) -> None:
+        prompt = """
+你是一個專業的圖片數據解析助手。
+我將提供一張圖片與圖片標題，請你從圖片中擷取可辨識的數據與文字資訊。
+
+【請務必遵守以下規則】
+1. 僅根據圖片中「實際可見且清晰」的內容回答。
+2. 不可臆測、不推測、不補完任何圖片中沒有明確顯示的資訊。
+3. 若內容不清楚或無法辨識，請標記為「不確定」，不要給出猜測。
+4. 若圖片中沒有有效數據、沒有清楚文字、或沒有可用資訊，請直接回覆：「無」。
+5. 如果能讀取到數據，請盡可能精確擷取並結構化整理(請用表格呈現)。
+6. 如果是圖表，請分析趨勢但不要過度解讀。
+
+【輸出格式】
+- 【圖片整體描述】
+- 【可擷取的所有數據列表，請用表格呈現】（若無則寫「無」）
+- 【表格或圖表數據&趨勢分析】（若圖片非圖表則略過）
+- 【不確定或模糊區域】（若無則寫「無」）
+
+以下是圖片標題：
+圖片標題：{image_caption}
+
+請開始解析圖片中的數據。
+    """
+        async def run():
+            results = []
+            tasks = []
+
+            for i, (name, caption, img_path) in enumerate(image_tasks):
+                # 創建異步任務
+                task = asyncio.create_task(self.llm_client.vision_chat(
+                    query=prompt.format(image_caption=caption),
+                    image_path=img_path,
+                    params=self.default_llm_params,
+                ))
+                tasks.append((name, img_path, task))
+
+                # 當達到批次大小時，執行並收集結果
+                if len(tasks) >= batch_size:
+                    if self.verbose:
+                        self.logger.info(f"Processing batch of {len(tasks)} images...")
+                    results.extend(await self._process_tasks(tasks))
+                    tasks = []
+
+            # 處理剩餘的任務
+            if tasks:
+                results.extend(await self._process_tasks(tasks))
+
+            return results
+
+        # 啟動事件迴圈執行
+        return asyncio.run(run())
+
+    async def _process_tasks(self, tasks: List[Tuple[str, Path, asyncio.Task]]) -> List[Tuple[str, Path, Any]]:
+        results = []
+        for name, img_path, task in tasks:
+            try:
+                # 等待任務完成並收集結果
+                result, _ = await task
+                results.append((name, img_path, result))
+            except Exception as e:
+                # 單獨處理每個任務的異常，避免影響其他任務
+                if self.verbose:
+                    self.logger.warning(f"Failed to process image {img_path}: {e}")
+                results.append((name, img_path, None))
+        return results
+
+    @staticmethod
+    def _read_json_if_exists(path: Path, encoding: str = "utf-8") -> Optional[Dict[str, Any]]:
+        if not path.exists():
+            return None
+        try:
+            return json.loads(path.read_text(encoding=encoding))
+        except json.JSONDecodeError as e:
+            raise DOCXProcessError(f"JSON decode error at {path}: {e}") from e
+
+
     def _process_single_doc(
         self,
         doc_path: Path,
