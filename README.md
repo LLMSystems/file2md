@@ -294,17 +294,6 @@ result = converter.convert_files(
 )
 ```
 
-## 主要特性
-
-- **多格式支援**: 支援 7 種常見文件格式
-- **Provider 架構**: 靈活的 Provider 設計，可輕鬆擴展
-- **多 Provider 支援**: 同一格式可使用不同的處理引擎（如 DOCX 支援 Mammoth 和 MinerU）
-- **批量處理**: 一次轉換多個文件
-- **可配置選項**: 豐富的轉換選項配置
-- **圖片提取**: 支援從文檔中提取圖片
-
-## 進階用法
-
 ### 使用 MinerU Provider
 
 PDF、DOC、PPT、IMAGE 格式支援使用 MinerU 作為後端引擎（需要 MinerU 服務）：
