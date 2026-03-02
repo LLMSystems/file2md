@@ -435,6 +435,16 @@ class DOCXMammothProvider:
         """
         # 處理表格
         html = self._convert_tables_to_markdown(html)
+
+        # 保護需要保留為 HTML 的 table（例如含合併儲存格）
+        preserved_tables: Dict[str, str] = {}
+
+        def preserve_table_replacer(match):
+            token = f"__PRESERVED_TABLE_{len(preserved_tables)}__"
+            preserved_tables[token] = match.group(0)
+            return f"\n{token}\n"
+
+        html = re.sub(r'<table[^>]*>.*?</table>', preserve_table_replacer, html, flags=re.DOTALL | re.IGNORECASE)
         
         # 處理圖片（必須在移除 HTML 標籤之前）
         html = self._convert_images_to_markdown(html)
@@ -471,6 +481,10 @@ class DOCXMammothProvider:
         
         # 清理多餘的空行
         html = re.sub(r'\n{3,}', '\n\n', html)
+
+        # 還原保留的 HTML table
+        for token, table_html in preserved_tables.items():
+            html = html.replace(token, table_html)
         
         return html.strip()
 
@@ -490,6 +504,10 @@ class DOCXMammothProvider:
         """
         def table_replacer(match):
             table_html = match.group(0)
+
+            # 若表格含合併儲存格（rowspan/colspan），保留原始 HTML
+            if re.search(r'<t[hd]\b[^>]*\b(?:rowspan|colspan)\s*=\s*["\']?\d+', table_html, re.IGNORECASE):
+                return "\n" + table_html.strip() + "\n"
             
             # 提取所有行
             rows = re.findall(r'<tr[^>]*>(.*?)</tr>', table_html, re.DOTALL)
