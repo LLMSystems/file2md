@@ -70,6 +70,13 @@ file2md:
     html: "beautifulsoup"
     txt: "txt"
 
+llm: # parse images
+  default_model: "Gemma-3-12B-IT"
+  default_config_path: "./configs/models.yaml"
+  default_params:
+    temperature: 0.2
+    max_tokens: 2000
+
 providers:
   mineru:
     base_url: "http://localhost:8962/"
@@ -85,14 +92,108 @@ converters:
       extra:
         extract_images: true
         keep_output: true
+        parse_image: true # parse file images
   pdf:
     mineru:
       extra:
         return_images: true
         keep_unzipped: true
+        parse_image: true
 ```
 
 完整的配置文件範例請參考 [config.example.yaml](configs/config.example.yaml)。
+
+在 `configs/model.yaml` 中配置各種多模態模型:
+
+```yaml
+params:
+    default:
+        temperature: 0.2
+        max_tokens: 1000
+        top_p: 1
+        frequency_penalty: 1.4
+        presence_penalty: 0
+
+LLM_engines:
+    gpt-4o:
+        model: "gpt-4o"
+        azure_api_base: 
+        azure_api_key: 
+        azure_api_version: 
+        translate_to_cht: True
+```
+完整的配置文件範例請參考 [models.example.yaml](configs/models.example.yaml)。
+
+## 架構
+```mermaid
+flowchart LR
+    %% 樣式
+    classDef input fill:#E3F2FD,stroke:#1E88E5,color:#0D47A1,stroke-width:1px;
+    classDef router fill:#EDE7F6,stroke:#8E24AA,color:#4A148C,stroke-width:1px;
+    classDef converter fill:#FFF3E0,stroke:#FB8C00,color:#E65100,stroke-width:1px;
+    classDef provider fill:#E8F5E9,stroke:#43A047,color:#1B5E20,stroke-width:1px;
+    classDef service fill:#F3E5F5,stroke:#7B1FA2,color:#4A148C,stroke-width:1px;
+
+    %% 輸入與路由
+    U[User Files]:::input --> FM[File2MD Router]:::router
+
+    %% 轉檔群
+    subgraph Converters
+      direction TB
+      DC[Docx Converter]:::converter
+      EC[Excel Converter]:::converter
+      HC[HTML Converter]:::converter
+      IC[Image Converter]:::converter
+      PC[PDF Converter]:::converter
+      PTC[PPTX Converter]:::converter
+      TC[TXT Converter]:::converter
+    end
+
+    FM --> DC
+    FM --> EC
+    FM --> HC
+    FM --> IC
+    FM --> PC
+    FM --> PTC
+    FM --> TC
+
+    %% Provider 群（主導流程）
+    subgraph Providers
+      direction TB
+      MUP[MinerU Provider]:::provider
+      MP[MAMM Provider]:::provider
+      EP[Excel Provider]:::provider
+      HP[HTML Provider]:::provider
+      TP[TXT Provider]:::provider
+    end
+
+    %% 服務（被依賴）
+    subgraph Image_Parse[Image Parse Services]
+      direction TB
+      IP[Image Parse Core]:::service
+      LLM[LLM Client]:::service
+      IP -. uses .-> LLM
+    end
+
+    %% 一般文本類：直接到專屬 Provider
+    EC --> EP
+    HC --> HP
+    TC --> TP
+
+    %% DOCX：可直接由 Provider 處理（必要時 Provider 內部再呼叫 Image Parse）
+
+    %% 影像型：直接交由 Provider；Provider 視需求呼叫 Image Parse Core
+    IC --> MUP
+    PC --> MUP
+    PTC --> MUP
+
+    DC --> MUP
+    DC --> MP
+
+    %% Provider 對 Image Parse Core 的依賴（虛線表示內部依賴關係）
+    MUP -. calls .-> IP
+    MP  -. calls .-> IP
+```
 
 ### 基本使用（進階控制）
 
