@@ -1,11 +1,9 @@
-"""
-HTML Converter - 協調多個 HTML Provider 進行轉換
-"""
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
+
 from src.converters.base_converter import BaseConverter
-from src.core.types import ProcessOptions, ProcessResult
 from src.core.errors import ConverterError
+from src.core.types import ProcessOptions, ProcessResult
 from src.providers.html.html_provider import HTMLBeautifulSoupProvider
 
 
@@ -30,7 +28,7 @@ class HTMLConverter(BaseConverter):
     def __init__(
         self,
         providers: Sequence[HTMLBeautifulSoupProvider],
-        prefer: Optional[str] = None,
+        prefer: Optional[str] = "beautifulsoup",
     ):
         """
         初始化 HTML 轉換器。
@@ -43,7 +41,7 @@ class HTMLConverter(BaseConverter):
             優先使用的 provider 名稱（例如 "beautifulsoup"）。
         """
         super().__init__()
-        self._providers = providers
+        self.providers = providers
         assert providers, "至少需要一個 HTML 解析提供者"
         self.logger.info(f"Initialized HTMLConverter with providers: {[p.name for p in providers]}")
         self._prefer = prefer
@@ -91,7 +89,7 @@ class HTMLConverter(BaseConverter):
             return {}
 
         # 選擇 provider
-        provider_name = (options.extra.get("html_provider") if options else None) or self._prefer
+        provider_name = (options.extra.get("provider") if options else None) or self._prefer
         candidates = self._select_providers(provider_name)
         
         self.logger.info(
@@ -103,15 +101,20 @@ class HTMLConverter(BaseConverter):
         last_err: Optional[Exception] = None
         for provider in candidates:
             try:
-                # 呼叫 provider 的 convert_html 方法
-                res = provider.convert_html(
+                # 呼叫 provider 的 convert_files 方法
+                res = provider.convert_files(
                     html_paths=html_files,
                     output_root=output_root,
                     options=options
                 )
                 
                 # 檢查是否所有檔案都有結果
-                missing = [p for p in html_files if str(p) not in res]
+                missing = []
+                for p in html_files:
+                    file_name = p.stem
+                    if file_name not in [Path(k).stem for k in res.keys()]:
+                        missing.append(str(p))
+                        
                 if missing:
                     self.logger.warning(
                         f"Provider {provider.name} did not return results for: {missing}"
@@ -122,7 +125,7 @@ class HTMLConverter(BaseConverter):
                     )
 
                 # 轉換結果格式（str key → Path key）
-                return_dict = options.extra.get("return_dict", True)
+                return_dict = options.extra.get("return_dict", False)
                 if return_dict:
                     # 將 str key 轉換為 Path key
                     res = {Path(k): v for k, v in res.items()}
@@ -137,27 +140,3 @@ class HTMLConverter(BaseConverter):
 
         # 所有 provider 都失敗
         raise ConverterError(f"All HTML providers failed. Last error: {last_err}")
-
-    def _select_providers(self, preferred: Optional[str]) -> List[HTMLBeautifulSoupProvider]:
-        """
-        選擇並排序 providers，優先使用指定的 provider。
-
-        Parameters
-        ----------
-        preferred : Optional[str]
-            優先使用的 provider 名稱。
-
-        Returns
-        -------
-        List[HTMLBeautifulSoupProvider]
-            排序後的 provider 列表。
-        """
-        if preferred:
-            # 優先的 provider 放前面
-            ordered = [p for p in self._providers if p.name == preferred] + \
-                      [p for p in self._providers if p.name != preferred]
-        else:
-            # 保持原始順序
-            ordered = list(self._providers)
-        
-        return ordered

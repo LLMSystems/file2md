@@ -7,3 +7,8 @@ loguru
 # docx
 mammoth
 python-docx
+# excel
+markitdown[xlsx]
+# app
+pydantic
+pyyaml

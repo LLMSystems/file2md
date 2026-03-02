@@ -7,34 +7,34 @@ from src.providers.base import BaseProvider
 from src.core.errors import ConverterError
 
 
-class DOCXConverter(BaseConverter):
+class PPTXConverter(BaseConverter):
     """
-    DOCX 轉換器協調器，可管理多個 DOCX Provider。
+    PPTX 轉換器協調器，可管理多個 PPTX Provider。
     用法:
-        converter = DOCXConverter(
-            providers = [DOCXMammothProvider()])
-            prefer = "mammoth"
+        converter = PPTXConverter(
+            providers = [PPTXMammothProvider()],
+            prefer = "mineru"
             )
         results = converter.convert_files(
-            input_paths=[Path("./test_files/test.docx")],
-            output_root=Path("./test_outputs/docx_basic"),
+            input_paths=[Path("./test_files/test.pptx")],
+            output_root=Path("./test_outputs/pptx_basic"),
             options=ProcessOptions()
         )
     """
 
-    name = "docx"
-    suffixes = {".docx", ".doc"}
+    name = "pptx"
+    suffixes = {".pptx", ".ppt"}
 
     # 初始化容器
     def __init__(
             self,
             providers: Sequence[BaseProvider],
-            prefer: Optional[str] = "mammoth",
+            prefer: Optional[str] = "mineru",
     ):
         super().__init__()
         self.providers = providers
-        assert providers, "至少需要一個 DOCX 解析提供者"
-        self.logger.info(f"Initialized DOCXConverter with providers: {[p.name for p in providers]}")
+        assert providers, "至少需要一個 PPTX 解析提供者"
+        self.logger.info(f"Initialized PPTXConverter with providers: {[p.name for p in providers]}")
         self._prefer = prefer # provider.name
     
     # convert files 
@@ -52,13 +52,13 @@ class DOCXConverter(BaseConverter):
         
         docs = [p for p in input_paths if self.supports(p)]
         if not docs:
-            self.logger.warning("No supported DOCX files found in input.")
+            self.logger.warning("No supported PPTX files found in input.")
             return {}
 
         provider_name = (options.extra.get("provider") if options else None) or self._prefer
         candidates = self._select_providers(provider_name)
         self.logger.info(
-                    "DOCX converting %d files to %s using providers: %s",
+                    "PPTX converting %d files to %s using providers: %s",
                     len(docs), output_root, [p.name for p in candidates]
                 )
 
@@ -79,7 +79,7 @@ class DOCXConverter(BaseConverter):
                         )
                 else:
                     self.logger.info(
-                        f"Provider {provider.name} successfully processed all DOCX files."
+                        f"Provider {provider.name} successfully processed all PPTX files."
                         )
                 
                 return_dict = options.extra.get("return_dict", False)
@@ -92,4 +92,4 @@ class DOCXConverter(BaseConverter):
                     )
                 last_err = e
                 continue
-        raise ConverterError(f"All DOCX providers failed. Last error: {last_err}")
+        raise ConverterError(f"All PPTX providers failed. Last error: {last_err}")

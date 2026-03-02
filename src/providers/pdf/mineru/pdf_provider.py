@@ -1,17 +1,20 @@
 import json
-import logging
+import mimetypes
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import Optional, Dict, Any, Tuple, Iterable, List, Union, Sequence
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from zipfile import ZipFile
 
 import requests
 from requests.adapters import HTTPAdapter, Retry
-from zipfile import ZipFile
 
-from src.providers.pdf.mineru.utils.draw_bbox import draw_layout_bbox, draw_span_bbox
-from src.providers.pdf.base import IPdfProvider
-from src.core.types import ProcessOptions, ProcessResult, Artifact, ArtifactType
+from src.core.types import (Artifact, ArtifactType, ProcessOptions,
+                            ProcessResult)
+from src.providers.base import BaseProvider
+from src.providers.pdf.mineru.utils.draw_bbox import (draw_layout_bbox,
+                                                      draw_span_bbox)
+
 
 class PDFProcessError(Exception):
     """Raised when the PDF processing pipeline fails."""
@@ -28,7 +31,7 @@ class MinerUProcessResult:
     span_pdf: Optional[Path]
 
 
-class PDFMinerUProvider(IPdfProvider):
+class PDFMinerUProvider(BaseProvider):
     """
     用法：
         client = PDFMinerUProvider(base_url="http://10.204.245.170:8962/", output_root="./test_outputs")
@@ -41,6 +44,28 @@ class PDFMinerUProvider(IPdfProvider):
             r2 = client.convert_files(["/path/b.pdf"], draw_layout_bbox=False, draw_span_bbox_=True)
     """
     name = "mineru"
+
+    _FALLBACK_MIME: Dict[str, str] = {
+            ".pdf":  "application/pdf",
+            ".doc":  "application/msword",
+            ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".ppt":  "application/vnd.ms-powerpoint",
+            ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            ".xls":  "application/vnd.ms-excel",
+            ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ".html": "text/html",
+            ".htm":  "text/html",
+            ".md":   "text/markdown",
+            ".txt":  "text/plain",
+            ".png":  "image/png",
+            ".jpg":  "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".tif":  "image/tiff",
+            ".tiff": "image/tiff",
+            ".gif":  "image/gif",
+            ".bmp":  "image/bmp",
+            ".svg":  "image/svg+xml",
+        }
     def __init__(
         self,
         base_url: str,
@@ -61,11 +86,11 @@ class PDFMinerUProvider(IPdfProvider):
         default_response_format_zip: bool = True,
         default_parse_method: str = "auto",
     ) -> None:
-        self.logger = self._setup_logger()
+        super().__init__()
+
         self.base_url = base_url.rstrip("/")
         self.api_url = f"{self.base_url}{api_path}"
         self.output_root = Path(output_root)
-        self.output_root.mkdir(parents=True, exist_ok=True)
 
         self.timeout = timeout
         self.strict_zip_content_type = strict_zip_content_type
@@ -94,38 +119,28 @@ class PDFMinerUProvider(IPdfProvider):
         except Exception:
             pass
 
-    def _setup_logger(self) -> logging.Logger:
-        logger = logging.getLogger(self.__class__.__name__)
-        if not logger.handlers:
-            handler = logging.StreamHandler()
-            handler.setFormatter(logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            ))
-            logger.addHandler(handler)
-            logger.setLevel(logging.INFO)
-        return logger
-
     # ---------- public API -----------
-    def convert_pdfs(
+    def convert_files(
         self,
-        pdf_paths: Sequence[Path],
+        file_paths: Sequence[Path],
         *,
-        output_root: Path,
+        output_root: Path = None,
         options: Optional[ProcessOptions] = None,
     ) -> Dict[str, ProcessResult]:
         options = options or ProcessOptions()
-        pdfs = [Path(p) for p in pdf_paths]
+        pdfs = [Path(p) for p in file_paths]
         if not pdfs:
             return {}
 
-        if isinstance(output_root, str):
-            output_root = Path(output_root)
-        self.output_root = output_root
-        self.output_root.mkdir(parents=True, exist_ok=True)
+        self.output_root = output_root or self.output_root
 
-        backend             = options.extra.get("pdf_backend", self.default_backend)
-        parse_method        = options.extra.get("pdf_parse_method", self.default_parse_method)
-        keep_unzipped       = bool(options.extra.get("pdf_keep_unzipped", True))
+        if isinstance(self.output_root, str):
+            self.output_root = Path(self.output_root)
+            self.output_root.mkdir(parents=True, exist_ok=True)
+
+        backend             = options.extra.get("backend", self.default_backend)
+        parse_method        = options.extra.get("parse_method", self.default_parse_method)
+        keep_unzipped       = bool(options.extra.get("keep_unzipped", True))
         return_images       = options.extra.get("return_images",        self.default_return_images)
         return_middle_json  = options.extra.get("return_middle_json",   self.default_return_middle_json)
         return_model_output = options.extra.get("return_model_output",  self.default_return_model_output)
@@ -134,7 +149,7 @@ class PDFMinerUProvider(IPdfProvider):
         draw_layout_bbox    = options.extra.get("draw_layout_bbox",     True)
         draw_span_bbox      = options.extra.get("draw_span_bbox",       True)
 
-        old_map = self.convert_files(
+        old_map = self.convert_pdfs(
             pdf_paths=pdfs,
             backend=backend,
             return_images=return_images,
@@ -215,8 +230,7 @@ class PDFMinerUProvider(IPdfProvider):
 
         return out
 
-    
-    def convert_files(
+    def convert_pdfs(
         self,
         pdf_paths: List[str | Path],
         *,
@@ -258,7 +272,7 @@ class PDFMinerUProvider(IPdfProvider):
             names = ", ".join([p.name for p in pdf_paths_p])
             self.logger.info(f"Uploading {len(pdf_paths_p)} PDFs → {self.api_url} :: {names}")
 
-        resp = self._post_pdf(self.api_url, pdf_paths_p, form)
+        resp = self._post_files(self.api_url, pdf_paths_p, form)
         zip_bytes = self._expect_zip_response(resp, strict_content_type=self.strict_zip_content_type)
 
         with ZipFile(zip_bytes, "r") as zf:
@@ -355,10 +369,10 @@ class PDFMinerUProvider(IPdfProvider):
             "parse_method": (parse_method or self.default_parse_method),
         }
     
-    def _post_pdf(
+    def _post_files(
         self,
         url: str,
-        pdf_paths: Union[Path, Iterable[Path]],
+        file_paths: Union[Path, Iterable[Path]],
         form_data: Dict[str, Any],
     ) -> requests.Response:
         """
@@ -366,27 +380,28 @@ class PDFMinerUProvider(IPdfProvider):
 
         Parameters
         ----------
-        pdf_paths : Path or Iterable[Path]
+        file_paths : Path or Iterable[Path]
             可傳單一 Path 或多個 Path。
         """
         # 正規化成 list[Path]
-        if isinstance(pdf_paths, Path):
-            pdf_list: List[Path] = [pdf_paths]
+        if isinstance(file_paths, Path):
+            file_list: List[Path] = [file_paths]
         else:
-            pdf_list = list(pdf_paths)
+            file_list = list(file_paths)
 
         # 檢查存在性
-        for p in pdf_list:
+        for p in file_list:
             if not p.exists():
                 raise PDFProcessError(f"PDF not found: {p}")
 
         # 重要：同一個 key "files" 可以重複多次以傳多檔
         files = []
         # 我們需要保持檔案物件存活直到 post 完成，因此先開啟所有 fp
-        fps = [p.open("rb") for p in pdf_list]
+        fps = [p.open("rb") for p in file_list]      
         try:
-            for p, fp in zip(pdf_list, fps):
-                files.append(("files", (p.name, fp, "application/pdf")))
+            for p, fp in zip(file_list, fps):
+                mime = self._detect_mime(p)
+                files.append(("files", (p.name, fp, mime)))
             resp = self._session.post(url, files=files, data=form_data, timeout=self.timeout)
         finally:
             for fp in fps:
@@ -483,3 +498,10 @@ class PDFMinerUProvider(IPdfProvider):
         except Exception as e:
             if self.verbose:
                 self.logger.warning(f"Warn: cleanup failed for {root}: {e}")
+
+    def _detect_mime(self, path: Path) -> str:
+            # 先用 mimetypes 猜，猜不到再用 fallback
+            mime, _ = mimetypes.guess_type(path.name)
+            if not mime:
+                mime = self._FALLBACK_MIME.get(path.suffix.lower(), "application/octet-stream")
+            return mime

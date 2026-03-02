@@ -7,34 +7,34 @@ from src.providers.base import BaseProvider
 from src.core.errors import ConverterError
 
 
-class DOCXConverter(BaseConverter):
+class ExcelConverter(BaseConverter):
     """
-    DOCX 轉換器協調器，可管理多個 DOCX Provider。
+    Excel 轉換器協調器，可管理多個 Excel Provider。
     用法:
-        converter = DOCXConverter(
-            providers = [DOCXMammothProvider()])
-            prefer = "mammoth"
+        converter = ExcelConverter(
+            providers = [ExcelProvider()])
+            prefer = "excel"
             )
         results = converter.convert_files(
-            input_paths=[Path("./test_files/test.docx")],
-            output_root=Path("./test_outputs/docx_basic"),
+            input_paths=[Path("./test_files/test.xlsx")],
+            output_root=Path("./test_outputs/excel_basic"),
             options=ProcessOptions()
         )
     """
 
-    name = "docx"
-    suffixes = {".docx", ".doc"}
+    name = "excel"
+    suffixes = {".xlsx", ".xls", ".csv"}
 
     # 初始化容器
     def __init__(
             self,
             providers: Sequence[BaseProvider],
-            prefer: Optional[str] = "mammoth",
+            prefer: Optional[str] = "excel",
     ):
         super().__init__()
         self.providers = providers
-        assert providers, "至少需要一個 DOCX 解析提供者"
-        self.logger.info(f"Initialized DOCXConverter with providers: {[p.name for p in providers]}")
+        assert providers, "至少需要一個 Excel 解析提供者"
+        self.logger.info(f"Initialized ExcelConverter with providers: {[p.name for p in providers]}")
         self._prefer = prefer # provider.name
     
     # convert files 
@@ -50,25 +50,25 @@ class DOCXConverter(BaseConverter):
         if isinstance(input_paths, list):
             input_paths = [Path(p) for p in input_paths]
         
-        docs = [p for p in input_paths if self.supports(p)]
-        if not docs:
-            self.logger.warning("No supported DOCX files found in input.")
+        excels = [p for p in input_paths if self.supports(p)]
+        if not excels:
+            self.logger.warning("No supported Excel files found in input.")
             return {}
 
         provider_name = (options.extra.get("provider") if options else None) or self._prefer
         candidates = self._select_providers(provider_name)
         self.logger.info(
-                    "DOCX converting %d files to %s using providers: %s",
-                    len(docs), output_root, [p.name for p in candidates]
+                    "Excel converting %d files to %s using providers: %s",
+                    len(excels), output_root, [p.name for p in candidates]
                 )
 
         last_err: Optional[Exception] = None
         for provider in candidates:
             try:
-                res = provider.convert_files(docs, output_root=output_root, options=options)
+                res = provider.convert_files(excels, output_root=output_root, options=options)
                 
                 missing = []
-                for p in docs:
+                for p in excels:
                     file_name = p.stem
                     if file_name not in [Path(k).stem for k in res.keys()]:
                         missing.append(str(p))
@@ -79,7 +79,7 @@ class DOCXConverter(BaseConverter):
                         )
                 else:
                     self.logger.info(
-                        f"Provider {provider.name} successfully processed all DOCX files."
+                        f"Provider {provider.name} successfully processed all Excel files."
                         )
                 
                 return_dict = options.extra.get("return_dict", False)
@@ -92,4 +92,4 @@ class DOCXConverter(BaseConverter):
                     )
                 last_err = e
                 continue
-        raise ConverterError(f"All DOCX providers failed. Last error: {last_err}")
+        raise ConverterError(f"All Excel providers failed. Last error: {last_err}")
