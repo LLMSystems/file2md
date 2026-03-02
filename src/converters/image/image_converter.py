@@ -18,7 +18,7 @@ class ImageConverter(BaseConverter):
         prefer: Optional[str] = "mineru",
     ):
         super().__init__()
-        self._providers = providers
+        self.providers = providers
         assert providers, "至少需要一個影像解析提供者"
         self.logger.info(f"Initialized ImageConverter with providers: {[p.name for p in providers]}")
         self._prefer = prefer # provider.name

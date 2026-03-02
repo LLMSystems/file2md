@@ -41,7 +41,7 @@ class HTMLConverter(BaseConverter):
             優先使用的 provider 名稱（例如 "beautifulsoup"）。
         """
         super().__init__()
-        self._providers = providers
+        self.providers = providers
         assert providers, "至少需要一個 HTML 解析提供者"
         self.logger.info(f"Initialized HTMLConverter with providers: {[p.name for p in providers]}")
         self._prefer = prefer
