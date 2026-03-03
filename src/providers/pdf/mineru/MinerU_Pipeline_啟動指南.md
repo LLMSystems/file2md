@@ -138,3 +138,42 @@ export MINERU_MODEL_SOURCE=local
 # 6) 啟動 API
 mineru-api --host 0.0.0.0 --port 8962
 ```
+
+## 11. 問題紀錄
+在本地部署 MinerU API 時，當同時發送多個 /file_parse 請求：
+- 即使 GPU 是單任務串行執行
+- A 任務已完成解析
+- A 請求卻沒有立即回傳
+- 而是等到 B 任務也完成後，兩個請求幾乎同時 done
+
+在回傳 ZIP (response_format_zip=true) 時更容易發生
+
+### 問題可能原因
+aio_do_parse 雖然是 async 介面，但其內部：
+- GPU 推論為同步 blocking 呼叫
+- 包含大量 CPU heavy 處理
+- 中間幾乎沒有 await 釋放控制權
+
+### 暫時解決方法
+將並發控制改為「等待」而非「直接拒絕」：
+修改 mineru api 源法中的 `def limit_concurrency()`
+```python
+async def limit_concurrency():
+    if _request_semaphore is not None:
+        async with _request_semaphore:
+            yield
+    else:
+        yield
+```
+
+並設置：
+
+MINERU_API_MAX_CONCURRENT_REQUESTS=1
+
+### 調整後行為
+
+當同時發送三個請求：
+- 第 1 個立即執行
+- 第 2、3 個在入口排隊
+- 每個任務完成後立即回傳
+- 不再出現「互等一起 done」
