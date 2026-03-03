@@ -1,18 +1,14 @@
-import cmd
-from socket import timeout
-import subprocess
-from pathlib import Path
-import uuid
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import tempfile
 import shutil
+import subprocess
+import tempfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+
 
 def _file_uri(p: Path) -> str:
     # 轉成 file:// URI（跨平台）
     # Windows 例如 C:\tmp\lo-1 會變成 file:///C:/tmp/lo-1
     return p.resolve().as_uri()
-
-
 
 
 def libreoffice_files_to_pdf(

@@ -1,6 +1,6 @@
 # file2md
 
-一個將多種文件格式轉換為 Markdown 的 Python 工具。
+一個將多種文件格式轉換為 Markdown 的工具。它支援包括文本、文檔、表格、簡報、PDF、圖片及網頁在內的多種格式，並提供靈活的配置選項與多引擎支援。無論是單一文件還是批量處理，file2md 都能高效完成轉換，並支援從文檔中提取圖片及解析圖片中的內容等進階功能。其模組化架構允許用戶根據需求選擇不同的處理引擎，滿足多樣化的應用場景。
 
 ## 支援格式
 
@@ -20,7 +20,7 @@ pip install -r requirements.txt
 
 ## 快速開始
 
-### 統一街口使用（推薦）
+### 統一接口使用（推薦）
 
 File2MD 提供了統一的入口類，可以自動根據配置文件處理所有支援的文件格式：
 
@@ -70,6 +70,13 @@ file2md:
     html: "beautifulsoup"
     txt: "txt"
 
+llm: # parse images
+  default_model: "Gemma-3-12B-IT"
+  default_config_path: "./configs/models.yaml"
+  default_params:
+    temperature: 0.2
+    max_tokens: 2000
+
 providers:
   mineru:
     base_url: "http://localhost:8962/"
@@ -85,14 +92,118 @@ converters:
       extra:
         extract_images: true
         keep_output: true
+        parse_image: true # parse file images
   pdf:
     mineru:
       extra:
         return_images: true
         keep_unzipped: true
+        parse_image: true
 ```
 
 完整的配置文件範例請參考 [config.example.yaml](configs/config.example.yaml)。
+
+在 `configs/model.yaml` 中配置各種多模態模型:
+
+```yaml
+params:
+    default:
+        temperature: 0.2
+        max_tokens: 1000
+        top_p: 1
+        frequency_penalty: 1.4
+        presence_penalty: 0
+
+LLM_engines:
+    gpt-4o:
+        model: "gpt-4o"
+        azure_api_base: 
+        azure_api_key: 
+        azure_api_version: 
+        translate_to_cht: True
+    Gemma-3-12B-IT:
+        model: "gemma-3-12b-it"
+        local_api_key: "Empty"
+        local_base_url: "http://10.204.245.170:8963/v1"
+        translate_to_cht: True # optional, whether to translate the input to Chinese Traditional
+```
+完整的配置文件範例請參考 [models.example.yaml](configs/models.example.yaml)。
+
+## 架構
+```mermaid
+flowchart TD
+    classDef input fill:#E3F2FD,stroke:#1E88E5,color:#0D47A1,stroke-width:1px;
+    classDef router fill:#EDE7F6,stroke:#8E24AA,color:#4A148C,stroke-width:1px;
+    classDef converter fill:#FFF3E0,stroke:#FB8C00,color:#E65100,stroke-width:1px;
+    classDef provider fill:#E8F5E9,stroke:#43A047,color:#1B5E20,stroke-width:1px;
+    classDef service fill:#F3E5F5,stroke:#7B1FA2,color:#4A148C,stroke-width:1px;
+    classDef vendor fill:#FCE4EC,stroke:#AD1457,color:#880E4F,stroke-width:1px;
+
+    U[User Files]:::input --> FM[File2MD Router]:::router
+
+    subgraph Converters
+      direction TB
+      DC[Docx Converter]:::converter
+      EC[Excel Converter]:::converter
+      HC[HTML Converter]:::converter
+      IC[Image Converter]:::converter
+      PC[PDF Converter]:::converter
+      PTC[PPTX Converter]:::converter
+      TC[TXT Converter]:::converter
+    end
+
+    FM --> DC
+    FM --> EC
+    FM --> HC
+    FM --> IC
+    FM --> PC
+    FM --> PTC
+    FM --> TC
+
+    subgraph Providers
+      direction TB
+      MUP[MinerU Provider]:::provider
+      MP[MAMM Provider]:::provider
+      EP[Excel Provider]:::provider
+      HP[HTML Provider]:::provider
+      TP[TXT Provider]:::provider
+    end
+
+    subgraph Image_Parse[Image Parse Services]
+      direction TB
+      IP[Image Parse Core]:::service
+
+      subgraph LLM_Client[供應商 / 模型舉例]
+        direction TB
+        AOAI[OpenAI • GPT‑4o]:::vendor
+        AN[Anthropic • Claude 4.5]:::vendor
+        GGL[Google • Gemini 3]:::vendor
+        OLL[自託管 / 本地]:::vendor
+      end
+
+      IP -. uses .-> LLM_Client
+    end
+
+    %% 一般文本類
+    EC --> EP
+    HC --> HP
+    TC --> TP
+
+    %% DOCX（Provider 主導）
+
+    %% 影像/版面類（先 Provider，再視需求呼叫 IP）
+    IC --> MUP
+    PC --> MUP
+    PTC --> MUP
+
+    DC --> MUP
+    DC --> MP
+
+    %% 依賴關係
+    MUP -. calls .-> IP
+    MP  -. calls .-> IP
+```
+
 
 ### 基本使用（進階控制）
 
@@ -182,17 +293,6 @@ result = converter.convert_files(
     )
 )
 ```
-
-## 主要特性
-
-- **多格式支援**: 支援 7 種常見文件格式
-- **Provider 架構**: 靈活的 Provider 設計，可輕鬆擴展
-- **多 Provider 支援**: 同一格式可使用不同的處理引擎（如 DOCX 支援 Mammoth 和 MinerU）
-- **批量處理**: 一次轉換多個文件
-- **可配置選項**: 豐富的轉換選項配置
-- **圖片提取**: 支援從文檔中提取圖片
-
-## 進階用法
 
 ### 使用 MinerU Provider
 

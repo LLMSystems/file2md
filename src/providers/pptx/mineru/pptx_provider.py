@@ -1,21 +1,12 @@
-import json
-import mimetypes
 from dataclasses import dataclass
-from io import BytesIO
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
-from zipfile import ZipFile
+from typing import Any, Dict, List, Optional, Sequence
 
-import requests
-from requests.adapters import HTTPAdapter, Retry
 
 from src.core.types import (Artifact, ArtifactType, ProcessOptions,
                             ProcessResult)
 from src.providers.pdf.mineru.pdf_provider import PDFMinerUProvider
-from src.providers.pdf.mineru.utils.draw_bbox import (draw_layout_bbox,
-                                                      draw_span_bbox)
-from src.providers.utils import \
-    batch_convert_to_pdf  # 用於 ppt/docx 轉 pdf 的工具函式
+from src.providers.utils import batch_convert_to_pdf
 
 
 class PDFProcessError(Exception):
@@ -114,6 +105,9 @@ class PPTXMinerUProvider(PDFMinerUProvider):
         draw_layout_bbox    = options.extra.get("draw_layout_bbox",     True)
         draw_span_bbox      = options.extra.get("draw_span_bbox",       True)
 
+        # parse image
+        parse_image = options.extra.get("parse_image", False)
+
         old_map = self.convert_pdfs(
             pdf_paths=pdf_paths,
             backend=backend,
@@ -126,6 +120,7 @@ class PPTXMinerUProvider(PDFMinerUProvider):
             draw_layout_bbox=draw_layout_bbox,
             draw_span_bbox_=draw_span_bbox,
             keep_unzipped=keep_unzipped,
+            parse_image=parse_image,
         )
 
         # delete temp pdf files
