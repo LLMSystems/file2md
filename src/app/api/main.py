@@ -21,7 +21,6 @@ from src.app.api.deps import (
 )
 from src.app.file2md import File2MD
 from src.core.types import ArtifactType
-from base64 import b64encode
 
 
 def _safe_filename(name: str) -> str:
