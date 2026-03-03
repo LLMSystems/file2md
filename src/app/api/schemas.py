@@ -8,6 +8,7 @@ class ConvertItemResponse(BaseModel):
     provider: str
     md_content: Optional[str] = None
     error: Optional[str] = None
+    images: Optional[List[dict]] = None
 
 
 class ConvertResponse(BaseModel):

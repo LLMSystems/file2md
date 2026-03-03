@@ -7,6 +7,7 @@ import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from base64 import b64encode
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 
@@ -19,6 +20,9 @@ from src.app.api.deps import (
     on_startup,
 )
 from src.app.file2md import File2MD
+from src.core.types import ArtifactType
+from base64 import b64encode
+
 
 def _safe_filename(name: str) -> str:
     """
@@ -38,6 +42,12 @@ async def _save_upload_to_disk(upload: UploadFile, dst_path: Path) -> None:
                 break
             f.write(chunk)
     await upload.close()
+
+
+def encode_image(image_path: str) -> str:
+    """Encode image using base64 and return a base64 string."""
+    with open(image_path, "rb") as f:
+        return b64encode(f.read()).decode()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -106,13 +116,24 @@ async def convert(
             error = getattr(pr, "error", None)
             md_path = getattr(pr, "md_path", None)
             md_content = getattr(pr, "md_text", None)
-            
+            image_artifacts = [a for a in (pr.artifacts or []) if a.type == ArtifactType.IMAGE]
+
+            images_b64 = [
+                {
+                    "name": a.name,
+                    "path": f"images/{a.name}" if a.name else "image/png",
+                    "data": encode_image(str(a.path)),  
+                }
+                for a in image_artifacts
+            ]
+
             out_items.append(
                 ConvertItemResponse(
                    filename=saved_to_name.get(item.input_path, Path(item.input_path).name),
                    fmt=item.fmt,
                    provider=item.provider,
                    md_content=md_content,
+                   images = images_b64 if images_b64 else None,
                    error=str(error) if error else None,
                 )
             )

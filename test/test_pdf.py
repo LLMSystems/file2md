@@ -11,7 +11,7 @@ if __name__ == "__main__":
             'provider': 'mineru', # optional, 如果沒有，會使用 converter 的 prefer 預設值
             'backend': 'pipeline',
             'parse_method': 'auto',
-            'keep_unzipped': True,
+            'keep_unzipped': True,   
             "draw_layout_bbox": True,
             "draw_span_bbox": True,    
             "return_images": True,
