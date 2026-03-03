@@ -20,5 +20,5 @@ if __name__ == "__main__":
         }
     )
 
-    result = converter.convert_files(pdfs, output_root="./test_outputs", options=options)
+    result = converter.convert_files(pdfs, output_root="./test_outputs/pdf", options=options)
     print(result)
