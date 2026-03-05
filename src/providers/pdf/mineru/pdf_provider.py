@@ -17,6 +17,7 @@ from src.providers.base import BaseProvider
 from src.providers.pdf.mineru.utils.draw_bbox import (draw_layout_bbox,
                                                       draw_span_bbox)
 
+import re
 
 class PDFProcessError(Exception):
     """Raised when the PDF processing pipeline fails."""
@@ -187,6 +188,7 @@ class PDFMinerUProvider(BaseProvider):
 
         # parse image
         parse_image = options.extra.get("parse_image", False)
+        parse_table = options.extra.get("parse_table", False)
 
         old_map = self.convert_pdfs(
             pdf_paths=pdfs,
@@ -201,6 +203,7 @@ class PDFMinerUProvider(BaseProvider):
             draw_span_bbox_=draw_span_bbox,
             keep_unzipped=keep_unzipped,
             parse_image=parse_image,
+            parse_table=parse_table,
         )
 
         out: Dict[str, ProcessResult] = {}
@@ -285,6 +288,7 @@ class PDFMinerUProvider(BaseProvider):
         draw_span_bbox_: bool = True,
         keep_unzipped: bool = True,
         parse_image: bool = False,
+        parse_table: bool = False,
     ) -> Dict[str, MinerUProcessResult]:
         """
         一次上傳多份 PDF 並處理結果。
@@ -357,12 +361,155 @@ class PDFMinerUProvider(BaseProvider):
             )
 
         results = self.parse_images(results, parse_image)
+        results = self.parse_tables(results, parse_table)
 
         if not keep_unzipped:
             self._safe_remove_dir(extract_dir)
 
         return results
+
+    def parse_tables(self, results: Dict[str, MinerUProcessResult], parse_table: bool) -> Dict[str, MinerUProcessResult]:
+        if not parse_table:
+            return results
+        # Implement the table parsing logic here
+        if not self.llm_client:
+            if self.verbose:
+                self.logger.warning("LLM client not initialized; skipping table parsing.")
+            return results
+        # step 1: collect all table from the results
+        table_tasks = []
+        for name, res in results.items():
+            content_list_path = res.extract_dir / name /f"{name}_content_list.json"
+            # read content list if exists
+            content_list = self._read_json_if_exists(content_list_path)
+            if not content_list:
+                if self.verbose:
+                    self.logger.warning(f"No content list found for {name}; skipping table parsing.")
+                continue
+            for item in content_list:
+                if item.get("type") == "table" and "img_path" in item:
+                    image_path = res.extract_dir / name / item["img_path"]
+                    table_caption = item.get("table_caption", "") # list
+                    table_caption_str = "\n".join(table_caption) if isinstance(table_caption, list) else str(table_caption)
+                    table_footnote = item.get("table_footnote", "") # list
+                    table_footnote_str = "\n".join(table_footnote) if isinstance(table_footnote, list) else str(table_footnote)
+                    table_body = item.get("table_body", "")
+                    if image_path.exists():
+                        table_tasks.append((name, (table_caption_str, table_footnote_str), (image_path, table_body)))
+        if len(table_tasks) == 0:
+            if self.verbose:
+                self.logger.info("No tables found for parsing.")
+            return results
+        
+        # step 2: parse each image with LLM
+        self.logger.info(f"Parsing {len(table_tasks)} tables with LLM...")
+        parsed_results = self.parse_table_tasks(table_tasks)
+
+        # step 3: integrate parsed results back into the original results
+        for name, (image_path, table_body), parsed in parsed_results:
+            if parsed is None:
+                continue
+            value = results.get(name)
+            md_content = value.md_content if value else None
+            if not md_content:
+                if self.verbose:
+                    self.logger.warning(f"No markdown content found for {name}; cannot integrate parsed image results.")
+                continue
+            """
+
+            """
+            parsed = self.convert_html_to_markdown(parsed)
+            new_md_content = md_content.replace(f"{table_body}", f"{parsed}")
+            results[name].md_content = new_md_content
+            # update md_path content as well
+            if value.md_path and value.md_path.exists():
+                value.md_path.write_text(new_md_content, encoding="utf-8")
+        return results
+     
     
+    def parse_table_tasks(self, table_tasks: List[Tuple[str, str, Path]], batch_size: int = 5) -> None:
+        prompt = """
+你是一個可將表格圖片轉成 HTML 表格的多模態模型。
+
+【任務】
+讀取我提供的表格圖片，僅輸出一段純 HTML <table> 片段。請完整還原表格內容與結構。
+
+【允許的標籤（僅限以下五種）】
+<table>、<tr>、<td>、<sup>、<sub>
+
+【嚴格禁止的內容】
+- 禁止出現：<caption>、<thead>、<tbody>、<tfoot>、<th>、<colgroup>、<col>、<style>、<span>、<div> 以及任何其他 HTML 標籤。
+- 禁止任何 Markdown 語法（例如 **粗體**、_斜體_、^上標^、~下標~、```程式碼框``` 等）。
+- 禁止自然語言解說、標題、備註文字、程式碼框包裝。
+- 最終回答「只能」是一個以 <table> 開頭、</table> 結尾的片段，前後不得有任何多餘字元。
+
+【表格結構規則】
+1) 標題列：第一列以 <tr><td>…</td>…</tr> 輸出所有欄名，禁止使用 <th>。
+2) 資料列：其後每一列以 <tr><td>…</td>…</tr> 輸出。
+3) 跨欄／跨列：可在 <td> 使用 colspan 或 rowspan 屬性（例如 <td colspan="2">）。
+4) 上標：使用 <sup>…</sup>（例如 MDE/s¹ → MDE/s<sup>1</sup>）。
+5) 下標：使用 <sub>…</sub>（例如 CO₂ → CO<sub>2</sub>）。
+6) 文字忠實還原：保留原始大小寫、單位、數值小數點、標點符號與空白，不得增減。
+
+【辨識準則】
+- 忽略邊框線、陰影、底色、裝飾圖樣，專注於儲存格文字與行列對齊。
+- 無法確定的字元請以「?」原位標記，不得臆測或補完。
+以下是表格標題與註腳，方便了解這張表格的內容：
+表格標題：{table_caption}
+表格註腳: {table_footnote}
+    """
+        async def run():
+            results = []
+            tasks = []
+
+            for i, (name, (table_caption, table_footnote), (img_path, table_body)) in enumerate(table_tasks):
+                # 創建異步任務
+                task = asyncio.create_task(self.llm_client.vision_chat(
+                    query=prompt.format(table_caption=table_caption, table_footnote=table_footnote),
+                    image_path=img_path,
+                    params=self.default_llm_params,
+                ))
+                tasks.append((name, (img_path, table_body), task))
+
+                # 當達到批次大小時，執行並收集結果
+                if len(tasks) >= batch_size:
+                    if self.verbose:
+                        self.logger.info(f"Processing batch of {len(tasks)} images...")
+                    results.extend(await self._process_tasks(tasks))
+                    tasks = []
+
+            # 處理剩餘的任務
+            if tasks:
+                results.extend(await self._process_tasks(tasks))
+
+            return results
+
+        # 啟動事件迴圈執行
+        return asyncio.run(run())
+
+    def convert_html_to_markdown(self, html_content):
+        """
+        清理 VLM 輸出的 HTML table，保留可在 Markdown 中正常渲染的標籤。
+        """
+        # 移除不支援的結構標籤：<thead>、<tbody>、<tfoot>
+        html_content = re.sub(r'</?(thead|tbody|tfoot)\b[^>]*>', '', html_content)
+
+        # 將 <th> 替換為 <td>（Markdown 不區分表頭）
+        html_content = re.sub(r'<th(\b[^>]*)>', r'<td\1>', html_content)
+        html_content = re.sub(r'</th>', r'</td>', html_content)
+
+        # 移除其他不支援的結構標籤
+        html_content = re.sub(r'<(/?)(caption|colgroup|col|style|span|div)\b[^>]*>', '', html_content)
+
+        # 移除 Markdown 語法殘留（防止 VLM 輸出 ^text^ 或 _text_）
+        html_content = re.sub(r'\^([^^]+)\^', lambda m: f'<sup>{m.group(1)}</sup>', html_content)
+
+        # 移除程式碼框包裝（``` 或 ```html）
+        html_content = re.sub(r'^```[\w]*\n?', '', html_content.strip())
+        html_content = re.sub(r'\n?```$', '', html_content.strip())
+
+        return html_content.strip()
+
     def parse_images(self, results: Dict[str, MinerUProcessResult], parse_image: bool) -> Dict[str, MinerUProcessResult]:
         if not parse_image:
             return results
