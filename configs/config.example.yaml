@@ -1,5 +1,5 @@
 file2md:
-  output_root: "./output/vlm"
+  output_root: "./output"
   prefer:
     txt: "txt"
     docx: "mammoth" # mineru
@@ -51,7 +51,7 @@ converters:
         return_middle_json: true
         response_format_zip: true
         parse_image: true
-        parse_table: true
+        parse_table_w_VLM: true
   pdf:
     mineru:
       extra:
@@ -63,7 +63,7 @@ converters:
         return_middle_json: true
         response_format_zip: true
         parse_image: true
-        parse_table: true
+        parse_table_w_VLM: true
   pptx:
     mineru:
       extra:
@@ -75,7 +75,7 @@ converters:
         return_middle_json: true
         response_format_zip: true
         parse_image: true
-        parse_table: true
+        parse_table_w_VLM: true
   html:
     beautifulsoup:
       extra:

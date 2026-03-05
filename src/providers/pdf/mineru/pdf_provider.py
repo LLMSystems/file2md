@@ -188,7 +188,7 @@ class PDFMinerUProvider(BaseProvider):
 
         # parse image
         parse_image = options.extra.get("parse_image", False)
-        parse_table = options.extra.get("parse_table", False)
+        parse_table_w_VLM = options.extra.get("parse_table", False)
 
         old_map = self.convert_pdfs(
             pdf_paths=pdfs,
@@ -203,7 +203,7 @@ class PDFMinerUProvider(BaseProvider):
             draw_span_bbox_=draw_span_bbox,
             keep_unzipped=keep_unzipped,
             parse_image=parse_image,
-            parse_table=parse_table,
+            parse_table_w_VLM=parse_table_w_VLM,
         )
 
         out: Dict[str, ProcessResult] = {}
@@ -288,7 +288,7 @@ class PDFMinerUProvider(BaseProvider):
         draw_span_bbox_: bool = True,
         keep_unzipped: bool = True,
         parse_image: bool = False,
-        parse_table: bool = False,
+        parse_table_w_VLM: bool = False,
     ) -> Dict[str, MinerUProcessResult]:
         """
         一次上傳多份 PDF 並處理結果。
@@ -361,15 +361,15 @@ class PDFMinerUProvider(BaseProvider):
             )
 
         results = self.parse_images(results, parse_image)
-        results = self.parse_tables(results, parse_table)
+        results = self.parse_tables(results, parse_table_w_VLM)
 
         if not keep_unzipped:
             self._safe_remove_dir(extract_dir)
 
         return results
 
-    def parse_tables(self, results: Dict[str, MinerUProcessResult], parse_table: bool) -> Dict[str, MinerUProcessResult]:
-        if not parse_table:
+    def parse_tables(self, results: Dict[str, MinerUProcessResult], parse_table_w_VLM: bool) -> Dict[str, MinerUProcessResult]:
+        if not parse_table_w_VLM:
             return results
         # Implement the table parsing logic here
         if not self.llm_client:
