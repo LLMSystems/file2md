@@ -13,6 +13,7 @@
 ```
 
 ## 將pdf轉成image
+### 方法一
 ```python
 from pdf2image import convert_from_path
 
@@ -23,6 +24,18 @@ folder = "output_images"
 os.makedirs(folder, exist_ok=True)
 for i, img in enumerate(images):
     img.save(f"{folder}/page_{i+1}.png", "PNG")
+```
+
+### 方法二
+```python
+# pip install pymupdf
+import fitz
+
+doc = fitz.open(pdf_path)
+for i, page in enumerate(doc):
+    pix = page.get_pixmap(dpi=300)
+    os.makedirs("output_images2", exist_ok=True)
+    pix.save(f"output_images2/page_{i+1}.png")
 ```
 
 ## 將MinerU數據轉成可訓練資料
