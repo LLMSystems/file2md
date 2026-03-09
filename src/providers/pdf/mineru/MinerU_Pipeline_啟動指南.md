@@ -177,3 +177,37 @@ MINERU_API_MAX_CONCURRENT_REQUESTS=1
 - 第 2、3 個在入口排隊
 - 每個任務完成後立即回傳
 - 不再出現「互等一起 done」
+
+
+
+## MinerU vlm-http-client 啟動指南
+### 啟動 
+[相關連結](https://github.com/opendatalab/mineru-vl-utils)
+使用 vllm>=0.10.1，啟動以下模型
+```bash
+pip install -U mineru-vl-utils
+vllm serve opendatalab/MinerU2.5-2509-1.2B --host 0.0.0.0 --port 8000 \
+  --logits-processors mineru_vl_utils:MinerULogitsProcessor
+```
+如果 vllm 版本低於 0.10.1
+```bash
+pip install -U mineru-vl-utils
+vllm serve opendatalab/MinerU2.5-2509-1.2B --host 0.0.0.0 --port 8000
+```
+### 基本使用方法
+```python
+from PIL import Image
+from mineru_vl_utils import MinerUClient
+
+client = MinerUClient(
+    backend="http-client",
+    server_url="http://0.0.0.0:8000"
+)
+
+image = Image.open("/path/to/the/test/image.png")
+extracted_blocks = client.two_step_extract(image)
+print(extracted_blocks)
+```
+
+### 結合 MinerU 使用
+backend 指定 `vlm-http-client`，server_url 指定 `http://0.0.0.0:8000` 即可使用，其餘相同
