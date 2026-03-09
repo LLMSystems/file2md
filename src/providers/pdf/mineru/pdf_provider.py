@@ -188,7 +188,7 @@ class PDFMinerUProvider(BaseProvider):
 
         # parse image
         parse_image = options.extra.get("parse_image", False)
-        parse_table_w_VLM = options.extra.get("parse_table", False)
+        parse_table_w_VLM = options.extra.get("parse_table_w_VLM", False)
 
         old_map = self.convert_pdfs(
             pdf_paths=pdfs,
