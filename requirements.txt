@@ -19,3 +19,5 @@ opencc-python-reimplemented
 fastapi
 uvicorn
 python-multipart
+# parse table by mineru vlm
+mineru-vl-utils
