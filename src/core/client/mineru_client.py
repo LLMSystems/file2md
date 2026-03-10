@@ -12,11 +12,12 @@ class MinerUMarkdownExtractor:
         self,
         server_url: str,
         backend: str = "http-client",
-        images_dir: str = "images",
+        images_dir: str = None,
     ):  
         self.client = MinerUClient(backend=backend, server_url=server_url)
         self.images_dir = images_dir
-        os.makedirs(self.images_dir, exist_ok=True)
+        if self.images_dir:
+            os.makedirs(self.images_dir, exist_ok=True)
 
     @staticmethod
     def _sanitize_text(text: str) -> str:
@@ -35,9 +36,9 @@ class MinerUMarkdownExtractor:
         except UnidentifiedImageError:
             raise ValueError(f"無法辨識的影像格式：{path}")
         
-    def blocks_to_markdown(self, blocks, original_image_path=None):
+    def blocks_to_markdown(self, blocks, original_image_path=None, images_dir=None):
         md_content = []
-        images_dir = self.images_dir
+        images_dir = images_dir or self.images_dir
         if original_image_path:
             orig_img = Image.open(original_image_path)
             W, H = orig_img.size
@@ -104,7 +105,7 @@ class MinerUMarkdownExtractor:
                 except Exception:
                     pass
 
-    def batch_image_to_md_two_step(self, image_paths: Sequence[str]) -> List[str]:
+    def batch_image_to_md_two_step(self, image_paths: Sequence[str], images_dir=None) -> List[str]:
         images: List[Image.Image] = []
         try:
             for p in image_paths:
@@ -113,7 +114,7 @@ class MinerUMarkdownExtractor:
             results = self.client.concurrent_two_step_extract(images=images)
             md_list: List[str] = []
             for blocks, path in zip(results, image_paths):
-                md = self.blocks_to_markdown(blocks, original_image_path=path)
+                md = self.blocks_to_markdown(blocks, original_image_path=path, images_dir=images_dir)
                 md_list.append(md)
             return md_list
         finally:
@@ -132,7 +133,8 @@ class MinerUMarkdownExtractor:
         self,
         image_paths: Sequence[str],
         batch_size: int = 5,
-        mode: str = "two_step" # or "last_step"
+        mode: str = "two_step", # or "last_step"
+        images_dir: str = None
     ):
         
         if not isinstance(batch_size, int) or batch_size <= 0:
@@ -145,7 +147,7 @@ class MinerUMarkdownExtractor:
         def _runner() -> Iterator[List[str]]:
             for batch in self._iter_batches(image_paths, batch_size):
                 if mode_norm == "two_step":
-                    yield self.batch_image_to_md_two_step(batch)
+                    yield self.batch_image_to_md_two_step(batch, images_dir=images_dir)
                 else:
                     yield self.batch_image_to_md_last_step(batch)
         
@@ -158,7 +160,6 @@ if __name__ == "__main__":
     extractor = MinerUMarkdownExtractor(
         server_url="http://10.204.245.170:8963",
         backend="http-client",
-        images_dir="images"
     )
 
     image_paths = [
