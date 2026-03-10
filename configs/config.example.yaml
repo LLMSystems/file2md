@@ -14,11 +14,15 @@ llm:
   default_config_path: "./configs/models.yaml"
   default_params:
     temperature: 0.2
-    max_tokens: 2000
+    max_tokens: 10000
+
+mineru_vlm:
+  default_server_url: "http://10.204.245.170:8963"
+  default_backend: "http-client"
 
 providers:
   mineru:
-    base_url: "http://10.204.245.170:8962/"
+    base_url: "http://10.204.245.170:8963/"
     timeout_sec: 600
     retry: 2
     default_extra:
@@ -62,7 +66,7 @@ converters:
         return_images: true
         return_middle_json: true
         response_format_zip: true
-        parse_image: true
+        parse_image: false
         parse_table_w_VLM: true
   pptx:
     mineru:

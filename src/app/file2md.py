@@ -14,9 +14,11 @@ from src.app.config import (File2MDConfig, build_process_extra,
                             get_llm_default_params, get_mineru_base_url,
                             get_mineru_retry, get_mineru_timeout,
                             load_config_from_env, load_config_from_yaml,
-                            resolve_output_root, resolve_prefer_provider)
+                            resolve_output_root, resolve_prefer_provider,
+                            get_mineru_markdown_extractor_base_url, get_mineru_markdown_extractor_backend)
 from src.app.http import build_llm_chat, build_session
 from src.core.client.llm_client import AsyncLLMChat
+from src.core.client.mineru_client import MinerUMarkdownExtractor
 from src.core.types import ProcessOptions, ProcessResult
 
 
@@ -87,7 +89,7 @@ def detect_format(path: str | Path) -> str:
 # Provider factory
 # ---------------------------
 
-def _build_provider(fmt: str, provider_name: str, cfg: File2MDConfig, mineru_session: Optional[requests.Session] = None, llm_client: Optional[AsyncLLMChat] = None):
+def _build_provider(fmt: str, provider_name: str, cfg: File2MDConfig, mineru_session: Optional[requests.Session] = None, llm_client: Optional[AsyncLLMChat] = None, mineru_markdown_extractor: Optional[MinerUMarkdownExtractor] = None):
     """
     Instantiate provider instance based on (format, provider_name).
     No fallback here.
@@ -135,6 +137,7 @@ def _build_provider(fmt: str, provider_name: str, cfg: File2MDConfig, mineru_ses
                 default_llm_config_path=get_llm_config_path(cfg),
                 llm_client=llm_client,
                 session=mineru_session,
+                markdown_extractor=mineru_markdown_extractor,
             )
         raise ProviderNotSupportedError(f"fmt=docx does not support provider={provider_name}")
 
@@ -151,6 +154,7 @@ def _build_provider(fmt: str, provider_name: str, cfg: File2MDConfig, mineru_ses
             default_llm_config_path=get_llm_config_path(cfg),
             llm_client=llm_client,
             session=mineru_session,
+            markdown_extractor=mineru_markdown_extractor,
         )
 
     if fmt == "pptx":
@@ -166,6 +170,7 @@ def _build_provider(fmt: str, provider_name: str, cfg: File2MDConfig, mineru_ses
             default_llm_config_path=get_llm_config_path(cfg),
             llm_client=llm_client,
             session=mineru_session,
+            markdown_extractor=mineru_markdown_extractor,
         )
 
     if fmt == "image":
@@ -182,6 +187,7 @@ def _build_provider(fmt: str, provider_name: str, cfg: File2MDConfig, mineru_ses
             default_llm_config_path=get_llm_config_path(cfg),
             llm_client=llm_client,
             session=mineru_session,
+            markdown_extractor=mineru_markdown_extractor,
         )
 
     raise ProviderNotSupportedError(f"Unknown format: {fmt}")
@@ -279,6 +285,8 @@ class File2MD:
         owns_mineru_session: Optional[bool] = None,
         llm_client: Optional[AsyncLLMChat] = None,
         owns_llm_client: Optional[bool] = None,
+        mineru_markdown_extractor: Optional[MinerUMarkdownExtractor] = None,
+        owns_mineru_markdown_extractor: Optional[bool] = None,
     ):
         self.cfg = cfg
         inflight = int(os.getenv("FILE2MD_MAX_CONVERT_INFLIGHT", "4"))
@@ -292,6 +300,16 @@ class File2MD:
             self._owns_mineru_session = False if owns_mineru_session is None else owns_mineru_session
         self._mineru_session = mineru_session
         
+        if mineru_markdown_extractor is None:
+            mineru_markdown_extractor = MinerUMarkdownExtractor(
+                server_url=get_mineru_markdown_extractor_base_url(cfg),
+                backend=get_mineru_markdown_extractor_backend(cfg),
+            )
+            self._owns_mineru_markdown_extractor = True if owns_mineru_markdown_extractor is None else owns_mineru_markdown_extractor
+        else:
+            self._owns_mineru_markdown_extractor = False if owns_mineru_markdown_extractor is None else owns_mineru_markdown_extractor
+        self._mineru_markdown_extractor = mineru_markdown_extractor
+
         if llm_client is None and get_llm_default_model(cfg) and get_llm_config_path(cfg):
             llm_client = build_llm_chat(
                 model=get_llm_default_model(cfg),
@@ -317,9 +335,10 @@ class File2MD:
         *,
         mineru_session: Optional[requests.Session] = None,
         llm_client: Optional[AsyncLLMChat] = None,
+        mineru_markdown_extractor: Optional[MinerUMarkdownExtractor] = None,
     ) -> "File2MD":
         cfg = load_config_from_env(default_path=default_path)
-        return cls(cfg, mineru_session=mineru_session, llm_client=llm_client)
+        return cls(cfg, mineru_session=mineru_session, llm_client=llm_client, mineru_markdown_extractor=mineru_markdown_extractor)
 
     @classmethod
     def from_yaml(
@@ -328,9 +347,10 @@ class File2MD:
         *,
         mineru_session: Optional[requests.Session] = None,
         llm_client: Optional[AsyncLLMChat] = None,
+        mineru_markdown_extractor: Optional[MinerUMarkdownExtractor] = None,
     ) -> "File2MD":
         cfg = load_config_from_yaml(path)
-        return cls(cfg, mineru_session=mineru_session, llm_client=llm_client)
+        return cls(cfg, mineru_session=mineru_session, llm_client=llm_client, mineru_markdown_extractor=mineru_markdown_extractor)
 
     def convert(
         self,
@@ -356,7 +376,7 @@ class File2MD:
         results: List[ConvertItemResult] = []
 
         for (fmt, provider), paths in groups.items():
-            prov = _build_provider(fmt, provider, self.cfg, mineru_session=self._mineru_session, llm_client=self._llm_client)
+            prov = _build_provider(fmt, provider, self.cfg, mineru_session=self._mineru_session, llm_client=self._llm_client, mineru_markdown_extractor=self._mineru_markdown_extractor)
             conv = _build_converter(fmt, provider, prov)
 
             extra = build_process_extra(

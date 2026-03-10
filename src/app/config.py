@@ -89,10 +89,16 @@ class LLMConfig(BaseModel):
     default_params: Dict[str, Any] = Field(default_factory=dict)
     default_config_path: Optional[str] = None
 
+class MinerUVLMConfig(BaseModel):
+    default_server_url: str = "http://10.204.245.170:8963"
+    default_backend: str = "http-client"
+
 class File2MDConfig(BaseModel):
     file2md: File2MDConfigRoot = Field(default_factory=File2MDConfigRoot)
     
     llm: LLMConfig = Field(default_factory=LLMConfig)
+    
+    mineru_vlm: MinerUVLMConfig = Field(default_factory=MinerUVLMConfig)
     
     providers: ProvidersConfig = Field(default_factory=ProvidersConfig)
 
@@ -270,4 +276,14 @@ def get_llm_default_params(cfg: File2MDConfig) -> Dict[str, Any]:
 def get_llm_config_path(cfg: File2MDConfig) -> Optional[str]:
     if cfg.llm.default_config_path:
         return cfg.llm.default_config_path
+    return None
+
+def get_mineru_markdown_extractor_base_url(cfg: File2MDConfig) -> Optional[str]:
+    if cfg.mineru_vlm.default_server_url:
+        return cfg.mineru_vlm.default_server_url
+    return None
+
+def get_mineru_markdown_extractor_backend(cfg: File2MDConfig) -> Optional[str]:
+    if cfg.mineru_vlm.default_backend:
+        return cfg.mineru_vlm.default_backend
     return None

@@ -11,6 +11,7 @@ import requests
 from requests.adapters import HTTPAdapter, Retry
 
 from src.core.client.llm_client import AsyncLLMChat
+from src.core.client.mineru_client import MinerUMarkdownExtractor
 from src.core.types import (Artifact, ArtifactType, ProcessOptions,
                             ProcessResult)
 from src.providers.base import BaseProvider
@@ -93,6 +94,7 @@ class PDFMinerUProvider(BaseProvider):
         default_llm_params: Optional[Dict[str, Any]] = None,
         llm_client: Optional[AsyncLLMChat] = None,
         session: Optional[requests.Session] = None,
+        markdown_extractor: Optional[MinerUMarkdownExtractor] = None
     ) -> None:
         super().__init__()
 
@@ -118,6 +120,9 @@ class PDFMinerUProvider(BaseProvider):
         self.default_llm_config_path = default_llm_config_path
         self.default_llm_params = default_llm_params or {}
 
+        # mineru markdown extractor
+        self.markdown_extractor = markdown_extractor
+
         if self.llm_client is None and self.default_llm_model and self.default_llm_config_path:
             self.llm_client = AsyncLLMChat(
                 model=self.default_llm_model,
@@ -142,6 +147,10 @@ class PDFMinerUProvider(BaseProvider):
                 self.logger.info(f"Creating new requests.Session for MinerUProvider with retries={retries}, backoff_factor={backoff_factor}, status_forcelist={status_forcelist}")
             self._session = self._build_session(retries, backoff_factor, status_forcelist)
             self._owns_session = True
+
+        if self.markdown_extractor is not None:
+            if self.verbose:
+                self.logger.info("Markdown extractor provided to PDFMinerUProvider.")
             
     # ---------- context manager -----------
     def __enter__(self) -> "PDFMinerUProvider":

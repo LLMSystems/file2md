@@ -7,6 +7,7 @@ import requests
 from requests.adapters import HTTPAdapter, Retry
 
 from src.core.client.llm_client import AsyncLLMChat
+from src.core.client.mineru_client import MinerUMarkdownExtractor
 
 
 def build_retry(
@@ -107,3 +108,13 @@ def build_llm_chat(
         llm_client = build_llm_chat(model="gpt-3.5-turbo", config_path="./configs/gpt35.json")
     """
     return AsyncLLMChat(model=model, config_path=config_path)
+
+def build_mineru_markdown_extractor(
+    *,
+    default_server_url: str,
+    default_backend: str,
+) -> MinerUMarkdownExtractor:
+    return MinerUMarkdownExtractor(
+        server_url=default_server_url,
+        backend=default_backend,
+    )
