@@ -2,6 +2,99 @@
 
 一個將多種文件格式轉換為 Markdown 的工具。它支援包括文本、文檔、表格、簡報、PDF、圖片及網頁在內的多種格式，並提供靈活的配置選項與多引擎支援。無論是單一文件還是批量處理，file2md 都能高效完成轉換，並支援從文檔中提取圖片及解析圖片中的內容等進階功能。其模組化架構允許用戶根據需求選擇不同的處理引擎，滿足多樣化的應用場景。
 
+## 架構
+```mermaid
+flowchart TD
+    classDef input fill:#E3F2FD,stroke:#1E88E5,color:#0D47A1,stroke-width:1px;
+    classDef router fill:#EDE7F6,stroke:#8E24AA,color:#4A148C,stroke-width:1px;
+    classDef converter fill:#FFF3E0,stroke:#FB8C00,color:#E65100,stroke-width:1px;
+    classDef provider fill:#E8F5E9,stroke:#43A047,color:#1B5E20,stroke-width:1px;
+    classDef service fill:#F3E5F5,stroke:#7B1FA2,color:#4A148C,stroke-width:1px;
+    classDef vendor fill:#FCE4EC,stroke:#AD1457,color:#880E4F,stroke-width:1px;
+
+    U[User Files]:::input --> FM[File2MD Router]:::router
+
+    subgraph Converters
+      direction TB
+      DC[Docx Converter]:::converter
+      EC[Excel Converter]:::converter
+      HC[HTML Converter]:::converter
+      IC[Image Converter]:::converter
+      PC[PDF Converter]:::converter
+      PTC[PPTX Converter]:::converter
+      TC[TXT Converter]:::converter
+    end
+
+    FM --> DC
+    FM --> EC
+    FM --> HC
+    FM --> IC
+    FM --> PC
+    FM --> PTC
+    FM --> TC
+
+    subgraph Providers
+      direction TB
+      EP[Excel Provider]:::provider
+      HP[HTML Provider]:::provider
+      MUP[MinerU Provider]:::provider
+      MP[MAMM Provider]:::provider
+      TP[TXT Provider]:::provider
+    end
+
+    %% Image Parse
+    subgraph Image_Parse[Image Parse Services]
+      direction TB
+      IP[Image Parse Core]:::service
+
+      subgraph LLM_Client[供應商 / 模型舉例]
+        direction TB
+        AOAI[OpenAI • GPT‑4o]:::vendor
+        AN[Anthropic • Claude 4.5]:::vendor
+        GGL[Google • Gemini 3]:::vendor
+        OLL[自託管 / 本地]:::vendor
+      end
+
+      IP -. uses .-> LLM_Client
+    end
+
+    %% Table Parse（新加）
+    subgraph Table_Parse[Table Parse Services]
+      direction TB
+      TPC[Table Parse Core]:::service
+
+      subgraph LLM_Client_Table[供應商 / 模型舉例]
+        direction TB
+        AOAI_T[OpenAI • GPT‑4o]:::vendor
+        AN_T[Anthropic • Claude 4.5]:::vendor
+        GGL_T[Google • Gemini 3]:::vendor
+        OLL_T[自託管 / 本地]:::vendor
+      end
+
+      TPC -. uses .-> LLM_Client_Table
+    end
+
+    %% 一般文本類
+    EC --> EP
+    HC --> HP
+    TC --> TP
+
+    %% 影像/版面類（先 Provider，再視需求呼叫 IP）
+    IC --> MUP
+    PC --> MUP
+    PTC --> MUP
+
+    DC --> MUP
+    DC --> MP
+
+    %% 依賴關係（Image Parse）
+    MUP -. calls .-> IP
+    MP  -. calls .-> IP
+
+    %% 依賴關係（Table Parse — 新增）
+    MUP  -. calls .-> TPC
+```
+
 ## 支援格式
 
 - **文本格式**: TXT
@@ -305,79 +398,4 @@ async def convert_files():
                 # ... 處理 Markdown 和圖片
 
 asyncio.run(convert_files())
-```
-
-## 架構
-```mermaid
-flowchart TD
-    classDef input fill:#E3F2FD,stroke:#1E88E5,color:#0D47A1,stroke-width:1px;
-    classDef router fill:#EDE7F6,stroke:#8E24AA,color:#4A148C,stroke-width:1px;
-    classDef converter fill:#FFF3E0,stroke:#FB8C00,color:#E65100,stroke-width:1px;
-    classDef provider fill:#E8F5E9,stroke:#43A047,color:#1B5E20,stroke-width:1px;
-    classDef service fill:#F3E5F5,stroke:#7B1FA2,color:#4A148C,stroke-width:1px;
-    classDef vendor fill:#FCE4EC,stroke:#AD1457,color:#880E4F,stroke-width:1px;
-
-    U[User Files]:::input --> FM[File2MD Router]:::router
-
-    subgraph Converters
-      direction TB
-      DC[Docx Converter]:::converter
-      EC[Excel Converter]:::converter
-      HC[HTML Converter]:::converter
-      IC[Image Converter]:::converter
-      PC[PDF Converter]:::converter
-      PTC[PPTX Converter]:::converter
-      TC[TXT Converter]:::converter
-    end
-
-    FM --> DC
-    FM --> EC
-    FM --> HC
-    FM --> IC
-    FM --> PC
-    FM --> PTC
-    FM --> TC
-
-    subgraph Providers
-      direction TB
-      MUP[MinerU Provider]:::provider
-      MP[MAMM Provider]:::provider
-      EP[Excel Provider]:::provider
-      HP[HTML Provider]:::provider
-      TP[TXT Provider]:::provider
-    end
-
-    subgraph Image_Parse[Image Parse Services]
-      direction TB
-      IP[Image Parse Core]:::service
-
-      subgraph LLM_Client[供應商 / 模型舉例]
-        direction TB
-        AOAI[OpenAI • GPT‑4o]:::vendor
-        AN[Anthropic • Claude 4.5]:::vendor
-        GGL[Google • Gemini 3]:::vendor
-        OLL[自託管 / 本地]:::vendor
-      end
-
-      IP -. uses .-> LLM_Client
-    end
-
-    %% 一般文本類
-    EC --> EP
-    HC --> HP
-    TC --> TP
-
-    %% DOCX（Provider 主導）
-
-    %% 影像/版面類（先 Provider，再視需求呼叫 IP）
-    IC --> MUP
-    PC --> MUP
-    PTC --> MUP
-
-    DC --> MUP
-    DC --> MP
-
-    %% 依賴關係
-    MUP -. calls .-> IP
-    MP  -. calls .-> IP
 ```
