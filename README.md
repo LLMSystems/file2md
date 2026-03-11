@@ -170,6 +170,10 @@ llm: # parse images
     temperature: 0.2
     max_tokens: 2000
 
+mineru_vlm:
+  default_server_url: "http://10.204.245.170:8963"
+  default_backend: "http-client"
+
 providers:
   mineru:
     base_url: "http://localhost:8962/"
