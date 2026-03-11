@@ -411,10 +411,6 @@ class PDFMinerUProvider(BaseProvider):
                 self.logger.info("No tables found for parsing.")
             return results
         
-        # step 2: parse each image with LLM
-        # self.logger.info(f"Parsing {len(table_tasks)} tables with LLM...")
-        # parsed_results = self.parse_table_tasks(table_tasks)
-
         # step 2: parse each table with MinerU VLM(one-step)
         table_paths = [i[2][0] for i in table_tasks]
         extractor_res = self.markdown_extractor.process_in_batches(table_paths, batch_size=5, mode="last_step")
@@ -439,67 +435,6 @@ class PDFMinerUProvider(BaseProvider):
             if value.md_path and value.md_path.exists():
                 value.md_path.write_text(new_md_content, encoding="utf-8")
         return results
-     
-    
-    def parse_table_tasks(self, table_tasks: List[Tuple[str, str, Path]], batch_size: int = 5) -> None:
-        prompt = """
-你是一個可將表格圖片轉成 HTML 表格的多模態模型。
-
-【任務】
-讀取我提供的表格圖片，僅輸出一段純 HTML <table> 片段。請完整還原表格內容與結構。
-
-【允許的標籤（僅限以下五種）】
-<table>、<tr>、<td>、<sup>、<sub>
-
-【嚴格禁止的內容】
-- 禁止出現：<caption>、<thead>、<tbody>、<tfoot>、<th>、<colgroup>、<col>、<style>、<span>、<div> 以及任何其他 HTML 標籤。
-- 禁止任何 Markdown 語法（例如 **粗體**、_斜體_、^上標^、~下標~、```程式碼框``` 等）。
-- 禁止自然語言解說、標題、備註文字、程式碼框包裝。
-- 最終回答「只能」是一個以 <table> 開頭、</table> 結尾的片段，前後不得有任何多餘字元。
-
-【表格結構規則】
-1) 標題列：第一列以 <tr><td>…</td>…</tr> 輸出所有欄名，禁止使用 <th>。
-2) 資料列：其後每一列以 <tr><td>…</td>…</tr> 輸出。
-3) 跨欄／跨列：可在 <td> 使用 colspan 或 rowspan 屬性（例如 <td colspan="2">）。
-4) 上標：使用 <sup>…</sup>（例如 MDE/s¹ → MDE/s<sup>1</sup>）。
-5) 下標：使用 <sub>…</sub>（例如 CO₂ → CO<sub>2</sub>）。
-6) 文字忠實還原：保留原始大小寫、單位、數值小數點、標點符號與空白，不得增減。
-
-【辨識準則】
-- 忽略邊框線、陰影、底色、裝飾圖樣，專注於儲存格文字與行列對齊。
-- 無法確定的字元請以「?」原位標記，不得臆測或補完。
-以下是表格標題與註腳，方便了解這張表格的內容：
-表格標題：{table_caption}
-表格註腳: {table_footnote}
-    """
-        async def run():
-            results = []
-            tasks = []
-
-            for i, (name, (table_caption, table_footnote), (img_path, table_body)) in enumerate(table_tasks):
-                # 創建異步任務
-                task = asyncio.create_task(self.llm_client.vision_chat(
-                    query=prompt.format(table_caption=table_caption, table_footnote=table_footnote),
-                    image_path=img_path,
-                    params=self.default_llm_params,
-                ))
-                tasks.append((name, (img_path, table_body), task))
-
-                # 當達到批次大小時，執行並收集結果
-                if len(tasks) >= batch_size:
-                    if self.verbose:
-                        self.logger.info(f"Processing batch of {len(tasks)} images...")
-                    results.extend(await self._process_tasks(tasks))
-                    tasks = []
-
-            # 處理剩餘的任務
-            if tasks:
-                results.extend(await self._process_tasks(tasks))
-
-            return results
-
-        # 啟動事件迴圈執行
-        return asyncio.run(run())
 
     def convert_html_to_markdown(self, html_content):
         """
