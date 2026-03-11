@@ -47,6 +47,14 @@ def encode_image(image_path: str) -> str:
     """Encode image using base64 and return a base64 string."""
     with open(image_path, "rb") as f:
         return b64encode(f.read()).decode()
+    
+def _parse_runtime_extra(runtime_extra_json: Optional[str]) -> Dict[str, Any]:
+    if not runtime_extra_json:
+        return None
+    try:
+        return json.loads(runtime_extra_json)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON in runtime_extra_json")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -69,6 +77,7 @@ def health(request: Request):
 async def convert(
     files: List[UploadFile] = File(...),
     output_root: Optional[str] = Form(None),
+    runtime_extra_json: Optional[str] = Form(None),
     keep_uploads: bool = Form(True),
     file2md: File2MD = Depends(get_file2md),
     limiter: asyncio.Semaphore = Depends(get_convert_limiter),
@@ -78,6 +87,8 @@ async def convert(
         raise HTTPException(status_code=400, detail="No files uploaded.")
     if len(files) > max_batch:
         raise HTTPException(status_code=400, detail=f"Too many files. max_batch={max_batch}, got={len(files)}")
+    
+    runtime_extra = _parse_runtime_extra(runtime_extra_json)
     
     job_id = uuid.uuid4().hex
     tmp_base = Path(os.getenv("FILE2MD_TMP_DIR", "/tmp/file2md_uploads"))
@@ -102,7 +113,8 @@ async def convert(
             try:
                 results = await file2md.aconvert(
                     input_paths=saved_paths,
-                    output_root=effective_output_root
+                    output_root=effective_output_root,
+                    runtime_extra=runtime_extra,
                 )
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Conversion failed: {str(e)}")
