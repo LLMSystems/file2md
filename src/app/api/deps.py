@@ -6,7 +6,8 @@ from fastapi import Request
 from src.app.config import (get_llm_config_path, get_llm_default_model,
                             get_mineru_retry, load_config_from_env)
 from src.app.file2md import File2MD
-from src.app.http import build_llm_chat, build_session, build_mineru_markdown_extractor
+from src.app.http import (build_llm_chat, build_mineru_markdown_extractor,
+                          build_session)
 
 DEFAULT_MAX_BATCH = int(os.getenv("FILE2MD_MAX_BATCH", "5"))
 DEFAULT_MAX_CONVERT_INFLIGHT = int(os.getenv("FILE2MD_MAX_CONVERT_INFLIGHT", "2"))

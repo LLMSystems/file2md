@@ -6,16 +6,18 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
-from fastapi.concurrency import run_in_threadpool
+
 import requests
+from fastapi.concurrency import run_in_threadpool
 
 from src.app.config import (File2MDConfig, build_process_extra,
                             get_llm_config_path, get_llm_default_model,
                             get_llm_default_params, get_mineru_base_url,
+                            get_mineru_markdown_extractor_backend,
+                            get_mineru_markdown_extractor_base_url,
                             get_mineru_retry, get_mineru_timeout,
                             load_config_from_env, load_config_from_yaml,
-                            resolve_output_root, resolve_prefer_provider,
-                            get_mineru_markdown_extractor_base_url, get_mineru_markdown_extractor_backend)
+                            resolve_output_root, resolve_prefer_provider)
 from src.app.http import build_llm_chat, build_session
 from src.core.client.llm_client import AsyncLLMChat
 from src.core.client.mineru_client import MinerUMarkdownExtractor

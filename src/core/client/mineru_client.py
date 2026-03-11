@@ -1,9 +1,10 @@
-from PIL import Image, UnidentifiedImageError
 import os
 import re
-from typing import List, Sequence, Iterator
 from html import unescape
+from typing import Iterator, List, Sequence
+
 from mineru_vl_utils import MinerUClient
+from PIL import Image, UnidentifiedImageError
 from tqdm import tqdm
 
 

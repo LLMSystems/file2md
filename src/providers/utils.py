@@ -3,7 +3,9 @@ import subprocess
 import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+
 from bs4 import BeautifulSoup
+
 
 def _file_uri(p: Path) -> str:
     # 轉成 file:// URI（跨平台）

@@ -2,11 +2,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
-
 from src.core.types import (Artifact, ArtifactType, ProcessOptions,
                             ProcessResult)
 from src.providers.pdf.mineru.pdf_provider import PDFMinerUProvider
-from src.providers.utils import batch_convert_to_pdf 
+from src.providers.utils import batch_convert_to_pdf
 
 
 class PDFProcessError(Exception):

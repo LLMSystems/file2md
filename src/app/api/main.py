@@ -4,21 +4,17 @@ import os
 import re
 import shutil
 import uuid
+from base64 import b64encode
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from base64 import b64encode
 
-from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import (Depends, FastAPI, File, Form, HTTPException, Request,
+                     UploadFile)
 
-from src.app.api.schemas import ConvertResponse, ConvertItemResponse
-from src.app.api.deps import (
-    get_convert_limiter,
-    get_file2md,
-    get_max_batch,
-    on_shutdown,
-    on_startup,
-)
+from src.app.api.deps import (get_convert_limiter, get_file2md, get_max_batch,
+                              on_shutdown, on_startup)
+from src.app.api.schemas import ConvertItemResponse, ConvertResponse
 from src.app.file2md import File2MD
 from src.core.types import ArtifactType
 

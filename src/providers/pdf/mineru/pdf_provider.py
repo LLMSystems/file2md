@@ -1,6 +1,7 @@
 import asyncio
 import json
 import mimetypes
+import re
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
@@ -19,7 +20,6 @@ from src.providers.pdf.mineru.utils.draw_bbox import (draw_layout_bbox,
                                                       draw_span_bbox)
 from src.providers.utils import analyze_html_tables_quality
 
-import re
 
 class PDFProcessError(Exception):
     """Raised when the PDF processing pipeline fails."""
