@@ -154,7 +154,6 @@ class PDFMinerUProvider(BaseProvider):
                 self.logger.info("Markdown extractor provided to PDFMinerUProvider.")
 
         # table quality threshold for deciding whether to fallback to two_step parsing
-        self.table_quality_threshold = 0.55
             
     # ---------- context manager -----------
     def __enter__(self) -> "PDFMinerUProvider":
@@ -198,6 +197,7 @@ class PDFMinerUProvider(BaseProvider):
         response_format_zip = options.extra.get("response_format_zip",  self.default_response_format_zip)
         draw_layout_bbox    = options.extra.get("draw_layout_bbox",     True)
         draw_span_bbox      = options.extra.get("draw_span_bbox",       True)
+        table_quality_threshold = options.extra.get("table_quality_threshold", 0.0)
 
         # parse image
         parse_image = options.extra.get("parse_image", False)
@@ -217,6 +217,7 @@ class PDFMinerUProvider(BaseProvider):
             keep_unzipped=keep_unzipped,
             parse_image=parse_image,
             parse_table_w_VLM=parse_table_w_VLM,
+            table_quality_threshold=table_quality_threshold,
         )
 
         out: Dict[str, ProcessResult] = {}
@@ -302,6 +303,7 @@ class PDFMinerUProvider(BaseProvider):
         keep_unzipped: bool = True,
         parse_image: bool = False,
         parse_table_w_VLM: bool = False,
+        table_quality_threshold: float = 0.0,
     ) -> Dict[str, MinerUProcessResult]:
         """
         一次上傳多份 PDF 並處理結果。
@@ -374,14 +376,18 @@ class PDFMinerUProvider(BaseProvider):
             )
 
         results = self.parse_images(results, parse_image)
-        results = self.parse_tables(results, parse_table_w_VLM)
+        results = self.parse_tables(results, parse_table_w_VLM, table_quality_threshold)
 
         if not keep_unzipped:
             self._safe_remove_dir(extract_dir)
 
         return results
 
-    def parse_tables(self, results: Dict[str, MinerUProcessResult], parse_table_w_VLM: bool) -> Dict[str, MinerUProcessResult]:
+    def parse_tables(
+        self, 
+        results: Dict[str, MinerUProcessResult], 
+        parse_table_w_VLM: bool,
+        table_quality_threshold: float = 0.0) -> Dict[str, MinerUProcessResult]:
         if not parse_table_w_VLM:
             return results
         # Implement the table parsing logic here
@@ -441,7 +447,7 @@ class PDFMinerUProvider(BaseProvider):
         fallback_tasks = []
         fallback_indices = []
         
-        if self.table_quality_threshold is not None:
+        if table_quality_threshold > 0.0:
             for idx, item in enumerate(parsed_results):
                 name = item["name"]
                 image_path = item["image_path"]
@@ -453,11 +459,11 @@ class PDFMinerUProvider(BaseProvider):
                         f"Analyzed table quality for {name} - {image_path.name}: {quality:.4f}"
                     )
 
-                if quality < self.table_quality_threshold:
+                if quality < table_quality_threshold:
                     if self.verbose:
                         self.logger.info(
                             f"Table quality below threshold "
-                            f"({quality:.4f} < {self.table_quality_threshold}); "
+                            f"({quality:.4f} < {table_quality_threshold}); "
                             f"mark for two-step re-parse."
                         )
                     fallback_tasks.append(image_path)
