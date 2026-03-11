@@ -427,7 +427,8 @@ class File2MD:
         def _run_one_group(fmt, provider, paths):
             prov = _build_provider(fmt, provider, self.cfg,
                                    mineru_session=self._mineru_session,
-                                   llm_client=self._llm_client)
+                                   llm_client=self._llm_client,
+                                   mineru_markdown_extractor=self._mineru_markdown_extractor)
             conv = _build_converter(fmt, provider, prov)
 
             extra = build_process_extra(self.cfg, fmt=fmt, provider=provider, runtime_extra=runtime_extra)

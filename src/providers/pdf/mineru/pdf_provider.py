@@ -403,17 +403,25 @@ class PDFMinerUProvider(BaseProvider):
                     table_footnote = item.get("table_footnote", "") # list
                     table_footnote_str = "\n".join(table_footnote) if isinstance(table_footnote, list) else str(table_footnote)
                     table_body = item.get("table_body", "")
-                    if image_path.exists():
+                    if item.get('img_path'):
                         table_tasks.append((name, (table_caption_str, table_footnote_str), (image_path, table_body)))
+
         if len(table_tasks) == 0:
             if self.verbose:
                 self.logger.info("No tables found for parsing.")
             return results
         
         # step 2: parse each image with LLM
-        self.logger.info(f"Parsing {len(table_tasks)} tables with LLM...")
-        parsed_results = self.parse_table_tasks(table_tasks)
+        # self.logger.info(f"Parsing {len(table_tasks)} tables with LLM...")
+        # parsed_results = self.parse_table_tasks(table_tasks)
 
+        # step 2: parse each table with MinerU VLM(one-step)
+        table_paths = [i[2][0] for i in table_tasks]
+        extractor_res = self.markdown_extractor.process_in_batches(table_paths, batch_size=5, mode="last_step")
+        parsed_results = []
+        for n, task in enumerate(table_tasks):
+            parsed_results.append((task[0],(task[2][0], task[2][1]), extractor_res[n]))
+    
         # step 3: integrate parsed results back into the original results
         for name, (image_path, table_body), parsed in parsed_results:
             if parsed is None:
@@ -424,9 +432,6 @@ class PDFMinerUProvider(BaseProvider):
                 if self.verbose:
                     self.logger.warning(f"No markdown content found for {name}; cannot integrate parsed image results.")
                 continue
-            """
-
-            """
             parsed = self.convert_html_to_markdown(parsed)
             new_md_content = md_content.replace(f"{table_body}", f"{parsed}")
             results[name].md_content = new_md_content
