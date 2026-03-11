@@ -3,7 +3,7 @@ import subprocess
 import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-
+from bs4 import BeautifulSoup
 
 def _file_uri(p: Path) -> str:
     # 轉成 file:// URI（跨平台）
@@ -153,3 +153,47 @@ def batch_convert_to_pdf(
     failures = [(files[idx], res) for idx, res in results if isinstance(res, Exception)]
 
     return successes, failures
+
+
+def analyze_html_tables_quality(html: str):
+    results= []
+    soup = BeautifulSoup(html, "html.parser")
+    for idx, table in enumerate(soup.find_all("table")):
+        try:
+            rows = table.find_all("tr")
+            num_rows = len(rows)
+            num_cols = 0
+            total_cells = 0
+            nonempty_cells = 0
+            for r in rows:
+                cells = r.find_all(["td", "th"])
+                num_cols = max(num_cols, len(cells))
+                for c in cells:
+                    total_cells +=1
+                    text = c.get_text(separator=' ', strip=True)
+                    if text:
+                        nonempty_cells += 1
+            fill_ratio = (nonempty_cells / total_cells) if total_cells > 0 else 0
+            unfill_ratio = 1 - fill_ratio
+            results.append({
+                "table_index": idx,
+                "num_rows": num_rows,
+                "num_cols": num_cols,
+                "total_cells": total_cells,
+                "nonempty_cells": nonempty_cells,
+                "fill_ratio": fill_ratio,
+                "unfill_ratio": unfill_ratio
+            })
+        except Exception as e:
+            print(f"Error analyzing table {idx}: {e}")
+            results.append({
+                "table_index": idx,
+                "num_rows": None,
+                "num_cols": None,
+                "total_cells": None,
+                "nonempty_cells": None,
+                "fill_ratio": None,
+                "unfill_ratio": None
+            })
+        average_fill_ratio = sum(r["fill_ratio"] for r in results if r["fill_ratio"] is not None) / len([r for r in results if r["fill_ratio"] is not None])
+    return average_fill_ratio

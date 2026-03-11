@@ -17,6 +17,7 @@ from src.core.types import (Artifact, ArtifactType, ProcessOptions,
 from src.providers.base import BaseProvider
 from src.providers.pdf.mineru.utils.draw_bbox import (draw_layout_bbox,
                                                       draw_span_bbox)
+from src.providers.utils import analyze_html_tables_quality
 
 import re
 
@@ -94,7 +95,7 @@ class PDFMinerUProvider(BaseProvider):
         default_llm_params: Optional[Dict[str, Any]] = None,
         llm_client: Optional[AsyncLLMChat] = None,
         session: Optional[requests.Session] = None,
-        markdown_extractor: Optional[MinerUMarkdownExtractor] = None
+        markdown_extractor: Optional[MinerUMarkdownExtractor] = None,
     ) -> None:
         super().__init__()
 
@@ -151,6 +152,9 @@ class PDFMinerUProvider(BaseProvider):
         if self.markdown_extractor is not None:
             if self.verbose:
                 self.logger.info("Markdown extractor provided to PDFMinerUProvider.")
+
+        # table quality threshold for deciding whether to fallback to two_step parsing
+        self.table_quality_threshold = 0.55
             
     # ---------- context manager -----------
     def __enter__(self) -> "PDFMinerUProvider":
@@ -417,8 +421,21 @@ class PDFMinerUProvider(BaseProvider):
         parsed_results = []
         for n, task in enumerate(table_tasks):
             parsed_results.append((task[0],(task[2][0], task[2][1]), extractor_res[n]))
+
+        # step3 : analyze the quality of parsed tables and fallback to two_step mode if quality is low
+        if self.table_quality_threshold is not None:
+            for name, (image_path, table_body), parsed in parsed_results:
+                quality = analyze_html_tables_quality(parsed)
+                if self.verbose:
+                    self.logger.info(f"Analyzed table quality for {name} - {image_path.name}: {quality:.4f}")
+                if quality < self.table_quality_threshold:
+                    if self.verbose:
+                        self.logger.info(f"Table quality below threshold ({quality:.4f} < {self.table_quality_threshold}); re-parsing with two-step method.")
+                    # re-parse with two-step method
+                    extractor_res = self.markdown_extractor.process_in_batches([image_path], batch_size=1, mode="two_step")
+                    parsed_results.append((name, (image_path, table_body), extractor_res[0]))
     
-        # step 3: integrate parsed results back into the original results
+        # step 4: integrate parsed results back into the original results
         for name, (image_path, table_body), parsed in parsed_results:
             if parsed is None:
                 continue
