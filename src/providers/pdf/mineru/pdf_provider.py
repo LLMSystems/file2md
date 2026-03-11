@@ -408,49 +408,108 @@ class PDFMinerUProvider(BaseProvider):
                     table_footnote_str = "\n".join(table_footnote) if isinstance(table_footnote, list) else str(table_footnote)
                     table_body = item.get("table_body", "")
                     if item.get('img_path'):
-                        table_tasks.append((name, (table_caption_str, table_footnote_str), (image_path, table_body)))
-
-        if len(table_tasks) == 0:
+                        table_tasks.append({
+                            "name": name,
+                            "caption": table_caption_str,
+                            "footnote": table_footnote_str,
+                            "image_path": image_path,
+                            "table_body": table_body,
+                        })
+        if not table_tasks:
             if self.verbose:
                 self.logger.info("No tables found for parsing.")
             return results
         
         # step 2: parse each table with MinerU VLM(one-step)
-        table_paths = [i[2][0] for i in table_tasks]
-        extractor_res = self.markdown_extractor.process_in_batches(table_paths, batch_size=5, mode="last_step")
+        table_paths = [task["image_path"] for task in table_tasks]
+        extractor_res = self.markdown_extractor.process_in_batches(
+            table_paths,
+            batch_size=5,
+            mode="last_step"
+        )
         parsed_results = []
-        for n, task in enumerate(table_tasks):
-            parsed_results.append((task[0],(task[2][0], task[2][1]), extractor_res[n]))
+        for task, parsed in zip(table_tasks, extractor_res):
+            parsed_results.append({
+                "name": task["name"],
+                "image_path": task["image_path"],
+                "table_body": task["table_body"],
+                "parsed": parsed,
+            })
 
         # step3 : analyze the quality of parsed tables and fallback to two_step mode if quality is low
+        filtered_parsed_results = []
+        fallback_tasks = []
+        fallback_indices = []
+        
         if self.table_quality_threshold is not None:
-            for name, (image_path, table_body), parsed in parsed_results:
+            for idx, item in enumerate(parsed_results):
+                name = item["name"]
+                image_path = item["image_path"]
+                parsed = item["parsed"]
+                
                 quality = analyze_html_tables_quality(parsed)
                 if self.verbose:
-                    self.logger.info(f"Analyzed table quality for {name} - {image_path.name}: {quality:.4f}")
+                    self.logger.info(
+                        f"Analyzed table quality for {name} - {image_path.name}: {quality:.4f}"
+                    )
+
                 if quality < self.table_quality_threshold:
                     if self.verbose:
-                        self.logger.info(f"Table quality below threshold ({quality:.4f} < {self.table_quality_threshold}); re-parsing with two-step method.")
-                    # re-parse with two-step method
-                    extractor_res = self.markdown_extractor.process_in_batches([image_path], batch_size=1, mode="two_step")
-                    parsed_results.append((name, (image_path, table_body), extractor_res[0]))
-    
+                        self.logger.info(
+                            f"Table quality below threshold "
+                            f"({quality:.4f} < {self.table_quality_threshold}); "
+                            f"mark for two-step re-parse."
+                        )
+                    fallback_tasks.append(image_path)
+                    fallback_indices.append(idx)
+                else:
+                    filtered_parsed_results.append(item)
+            
+            if fallback_tasks:
+                fallback_res = self.markdown_extractor.process_in_batches(
+                    fallback_tasks,
+                    batch_size=5, 
+                    mode="two_step"
+                )
+                
+                for idx, reparsed in zip(fallback_indices, fallback_res):
+                    item = parsed_results[idx]
+                    filtered_parsed_results.append({
+                        "name": item["name"],
+                        "image_path": item["image_path"],
+                        "table_body": item["table_body"],
+                        "parsed": reparsed,
+                    })
+                
+        else:
+            filtered_parsed_results = parsed_results
+                
         # step 4: integrate parsed results back into the original results
-        for name, (image_path, table_body), parsed in parsed_results:
+        for item in filtered_parsed_results:
+            name = item["name"]
+            image_path = item["image_path"]
+            table_body = item["table_body"]
+            parsed = item["parsed"]
+
             if parsed is None:
                 continue
+
             value = results.get(name)
             md_content = value.md_content if value else None
             if not md_content:
                 if self.verbose:
-                    self.logger.warning(f"No markdown content found for {name}; cannot integrate parsed image results.")
+                    self.logger.warning(
+                        f"No markdown content found for {name}; cannot integrate parsed table results."
+                    )
                 continue
-            parsed = self.convert_html_to_markdown(parsed)
-            new_md_content = md_content.replace(f"{table_body}", f"{parsed}")
+
+            parsed_md = self.convert_html_to_markdown(parsed)
+            new_md_content = md_content.replace(f"{table_body}", f"{parsed_md}")
             results[name].md_content = new_md_content
-            # update md_path content as well
+
             if value.md_path and value.md_path.exists():
                 value.md_path.write_text(new_md_content, encoding="utf-8")
+
         return results
 
     def convert_html_to_markdown(self, html_content):
