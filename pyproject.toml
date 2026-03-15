@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "file2md"
+version = "0.1.0"
+description = "Convert various file formats to Markdown for LLM processing"
+authors = [
+    { name = "Max" }
+]
+
+readme = "README.md"
+requires-python = ">=3.9"
+
+dependencies = [
+    "requests",
+    "tqdm",
+    "pydantic",
+    "beautifulsoup4",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+
+# PDF處理
+pdf = [
+    "pypdf>=5.6.0",
+    "reportlab",
+    "loguru",
+]
+
+# MinerU provider
+mineru = [
+    "mineru[pipeline]",
+]
+
+# Excel處理
+excel = [
+    "markitdown",
+]
+
+# DOCX處理
+docx = [
+    "mammoth",
+    "python-docx",
+]
+
+# api
+api = [
+    "fastapi",
+    "uvicorn",
+    "python-multipart",
+]
+
+# vlm for parse image
+vlm = [
+    "mineru-vl-utils",
+    "openai",
+    "opencc-python-reimplemented",
+]
+
+# all
+all = [
+    "pypdf>=5.6.0",
+    "reportlab",
+    "loguru",
+    "mineru-vl-utils",
+    "markitdown",
+    "mammoth",
+    "python-docx",
+    "fastapi",
+    "uvicorn",
+    "python-multipart",
+    "openai",
+    "opencc-python-reimplemented",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

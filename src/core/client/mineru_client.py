@@ -15,7 +15,11 @@ class MinerUMarkdownExtractor:
         backend: str = "http-client",
         images_dir: str = None,
     ):  
-        self.client = MinerUClient(backend=backend, server_url=server_url)
+        try:
+            self.client = MinerUClient(backend=backend, server_url=server_url)
+        except Exception as e:
+            self.client = None
+            print(f"初始化 MinerUClient 失敗：{e}")
         self.images_dir = images_dir
         if self.images_dir:
             os.makedirs(self.images_dir, exist_ok=True)

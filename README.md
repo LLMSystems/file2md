@@ -107,8 +107,31 @@ flowchart TD
 
 ## 安裝
 
+### 第一步：安裝 MinerU
+
 ```bash
-pip install -r requirements.txt
+pip install -e .[mineru]
+```
+
+### 第二步：下載 MinerU 相關模型
+
+```bash
+mineru-models-download --model_type pipeline
+```
+
+### 第三步：安裝項目相關依賴
+
+```bash
+pip install -e .[all]
+```
+
+### 第四步（可選）：啟動 MinerU VLM 服務
+
+如果需要透過 MinerU VLM 針對表格進行特別解析，請透過 vllm 啟動：
+
+```bash
+vllm serve opendatalab/MinerU2.5-2509-1.2B --host 0.0.0.0 --port 8000 \
+  --logits-processors mineru_vl_utils:MinerULogitsProcessor
 ```
 
 ## 快速開始
