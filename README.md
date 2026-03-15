@@ -1,12 +1,16 @@
 # file2md
 
+
+[English](README.md) | [中文](README_zh-CN.md)
+
+
 <p align="center">
   <img src="assets/file2md_structure.png" width="700px" style="vertical-align:middle;">
 </p>
 
-file2md是一個將多種文件格式轉換為 Markdown 的工具。它支援包括文本、文檔、表格、簡報、PDF、圖片及網頁在內的多種格式，並提供靈活的配置選項與多引擎支援。無論是單一文件還是批量處理，file2md 都能高效完成轉換，並支援從文檔中提取圖片及解析圖片中的內容，以及優化表格擷取等進階功能。其模組化架構允許用戶根據需求選擇不同的處理引擎，滿足多樣化的應用場景。
+file2md is a versatile tool for converting multiple file formats to Markdown. It supports various formats including text, documents, spreadsheets, presentations, PDFs, images, and web pages, with flexible configuration options and multi-engine support. Whether processing single files or batch conversions, file2md efficiently handles the task while supporting image extraction from documents, image content parsing, and advanced features like optimized table extraction. Its modular architecture allows users to select different processing engines based on their needs, catering to diverse application scenarios.
 
-## 架構
+## Architecture
 ```mermaid
 flowchart TD
     classDef input fill:#E3F2FD,stroke:#1E88E5,color:#0D47A1,stroke-width:1px;
@@ -51,39 +55,39 @@ flowchart TD
       direction TB
       IP[Image Parse Core]:::service
 
-      subgraph LLM_Client[供應商 / 模型舉例]
+      subgraph LLM_Client[Vendor / Model Examples]
         direction TB
         AOAI[OpenAI • GPT‑4o]:::vendor
         AN[Anthropic • Claude 4.5]:::vendor
         GGL[Google • Gemini 3]:::vendor
-        OLL[自託管 / 本地]:::vendor
+        OLL[Self-hosted / Local]:::vendor
       end
 
       IP -. uses .-> LLM_Client
     end
 
-    %% Table Parse（新加）
+    %% Table Parse
     subgraph Table_Parse[Table Parse Services]
       direction TB
       TPC[Table Parse Core]:::service
 
-      subgraph LLM_Client_Table[供應商 / 模型舉例]
+      subgraph LLM_Client_Table[Vendor / Model Examples]
         direction TB
         AOAI_T[OpenAI • GPT‑4o]:::vendor
         AN_T[Anthropic • Claude 4.5]:::vendor
         GGL_T[Google • Gemini 3]:::vendor
-        OLL_T[自託管 / 本地]:::vendor
+        OLL_T[Self-hosted / Local]:::vendor
       end
 
       TPC -. uses .-> LLM_Client_Table
     end
 
-    %% 一般文本類
+    %% Text-based files
     EC --> EP
     HC --> HP
     TC --> TP
 
-    %% 影像/版面類（先 Provider，再視需求呼叫 IP）
+    %% Image/Layout files (Provider first, then calls IP as needed)
     IC --> MUP
     PC --> MUP
     PTC --> MUP
@@ -91,191 +95,191 @@ flowchart TD
     DC --> MUP
     DC --> MP
 
-    %% 依賴關係（Image Parse）
+    %% Dependencies (Image Parse)
     MUP -. calls .-> IP
     MP  -. calls .-> IP
 
-    %% 依賴關係（Table Parse — 新增）
+    %% Dependencies (Table Parse)
     MUP  -. calls .-> TPC
 ```
 
-## 支援格式
+## Supported Formats
 
-- **文本格式**: TXT
-- **文檔格式**: DOCX
-- **表格格式**: Excel (XLSX, CSV)
-- **簡報**: PPTX
-- **PDF**: PDF 文件
-- **圖片**: PNG, JPG 等圖片格式
-- **網頁**: HTML
+- **Text Formats**: TXT
+- **Document Formats**: DOCX
+- **Spreadsheet Formats**: Excel (XLSX, CSV)
+- **Presentations**: PPTX
+- **PDF**: PDF files
+- **Images**: PNG, JPG and other image formats
+- **Web Pages**: HTML
 
-## 功能需求對照
+## Feature Requirements
 
-不同功能對於額外安裝和外部服務的需求說明：
+Requirements for additional installation and external services for different features:
 
-| 功能              | 是否需要額外安裝 | 是否需要外部服務 |
-| --------------- | -------: | -------: |
-| TXT             |        否 |        否 |
-| HTML            |        否 |        否 |
-| DOCX (mammoth)  |        否 |        否 |
-| DOCX (mineru)    |        是 |        是 |
-| PDF (mineru)    |        是 |        是 |
-| PPT (mineru)    |        是 |        是 |
-| Table VLM parse |        是 |        是 |
-| Image parse     |        是 |        是 |
+| Feature             | Additional Installation | External Service |
+| ------------------- | :---------------------: | :--------------: |
+| TXT                 |           No            |        No        |
+| HTML                |           No            |        No        |
+| DOCX (mammoth)      |           No            |        No        |
+| DOCX (mineru)       |           Yes           |       Yes        |
+| PDF (mineru)        |           Yes           |       Yes        |
+| PPT (mineru)        |           Yes           |       Yes        |
+| Table VLM parse     |           Yes           |       Yes        |
+| Image parse         |           Yes           |       Yes        |
 
-**說明**：
-- **TXT / HTML / DOCX**：基礎功能，無需額外依賴，只需要安裝 `pip install -e .[all]` 即可
-- **PDF (mineru) / DOCX (mineru) / PPT (mineru)**：需要安裝 MinerU，可能需要外部 GPU 資源（視文件複雜度）
-- **Table VLM parse**：需要啟動 MinerU VLM 服務（見安裝步驟第四步）
-- **Image parse**：需要配置 LLM/VLM 服務（OpenAI、Anthropic、本地模型等）
+**Notes**:
+- **TXT / HTML / DOCX**: Basic features, no additional dependencies required, just install with `pip install -e .[all]`
+- **PDF (mineru) / DOCX (mineru) / PPT (mineru)**: Requires MinerU installation, may need external GPU resources (depending on document complexity)
+- **Table VLM parse**: Requires starting MinerU VLM service (see installation step 4)
+- **Image parse**: Requires configuring LLM/VLM services (OpenAI, Anthropic, local models, etc.)
 
-## 專案結構
+## Project Structure
 
 ```
 file2md/
-├── src/                          # 源代碼目錄
-│   ├── app/                      # 應用層
-│   │   ├── file2md.py           # File2MD 主類（統一轉換入口）
-│   │   ├── config.py            # 配置管理
-│   │   ├── http.py              # HTTP 客戶端
-│   │   └── api/                 # RESTful API 實現
-│   ├── converters/              # 格式轉換器
-│   │   ├── base_converter.py   # 轉換器基類
-│   │   ├── docx/                # Word 文檔轉換器
-│   │   ├── excel/               # Excel 表格轉換器
-│   │   ├── pdf/                 # PDF 轉換器
-│   │   ├── pptx/                # PowerPoint 轉換器
-│   │   ├── image/               # 圖片轉換器
-│   │   ├── html/                # HTML 轉換器
-│   │   └── txt/                 # 文本轉換器
-│   ├── providers/               # 後端服務提供者
+├── src/                          # Source code directory
+│   ├── app/                      # Application layer
+│   │   ├── file2md.py           # File2MD main class (unified conversion entry)
+│   │   ├── config.py            # Configuration management
+│   │   ├── http.py              # HTTP client
+│   │   └── api/                 # RESTful API implementation
+│   ├── converters/              # Format converters
+│   │   ├── base_converter.py   # Converter base class
+│   │   ├── docx/                # Word document converter
+│   │   ├── excel/               # Excel spreadsheet converter
+│   │   ├── pdf/                 # PDF converter
+│   │   ├── pptx/                # PowerPoint converter
+│   │   ├── image/               # Image converter
+│   │   ├── html/                # HTML converter
+│   │   └── txt/                 # Text converter
+│   ├── providers/               # Backend service providers
 │   │   ├── pdf/                 # PDF Provider
 │   │   ├── excel/               # Excel Provider
 │   │   ├── html/                # HTML Provider
 │   │   └── txt/                 # TXT Provider
-│   └── core/                    # 核心模組
-│       ├── types.py             # 類型定義
-│       ├── errors.py            # 錯誤處理
-│       └── client/              # 客戶端實現（LLM、VLM等）
-├── configs/                     # 配置文件
-│   ├── config.example.yaml      # 配置範例
-│   └── models.example.yaml      # 模型配置範例
-├── test/                        # 測試文件
-├── pyproject.toml               # 專案配置（依賴、打包等）
-├── start_api.sh                 # API 服務啟動腳本
-└── README.md                    # 專案說明文檔
+│   └── core/                    # Core modules
+│       ├── types.py             # Type definitions
+│       ├── errors.py            # Error handling
+│       └── client/              # Client implementations (LLM, VLM, etc.)
+├── configs/                     # Configuration files
+│   ├── config.example.yaml      # Configuration example
+│   └── models.example.yaml      # Model configuration example
+├── test/                        # Test files
+├── pyproject.toml               # Project configuration (dependencies, packaging, etc.)
+├── start_api.sh                 # API service startup script
+└── README.md                    # Project documentation
 ```
 
-### 核心模組說明
+### Core Modules
 
-- **app/file2md.py**: 提供統一的 `File2MD` 類，自動根據文件類型選擇對應的轉換器
-- **converters/**: 每種格式都有對應的轉換器，負責協調 Provider 完成轉換
-- **providers/**: 實際執行轉換的後端服務（如 MinerU、Mammoth 等）
-- **core/client/**: LLM 和 VLM 客戶端，用於圖片解析和表格增強
-- **app/api/**: FastAPI 實現的 RESTful API 服務
+- **app/file2md.py**: Provides unified `File2MD` class that automatically selects the appropriate converter based on file type
+- **converters/**: Each format has a corresponding converter responsible for coordinating providers to complete conversions
+- **providers/**: Backend services that actually perform conversions (e.g., MinerU, Mammoth, etc.)
+- **core/client/**: LLM and VLM clients for image parsing and table enhancement
+- **app/api/**: RESTful API service implemented with FastAPI
 
-## 安裝
+## Installation
 
-### 第一步：安裝 MinerU
+### Step 1: Install MinerU
 
 ```bash
 pip install -e .[mineru]
 ```
 
-### 第二步：下載 MinerU 相關模型
-安裝&啟動細節可參考 [MinerU 安裝啟動指南](src/providers/pdf/mineru/MinerU_Pipeline_啟動指南.md)
+### Step 2: Download MinerU Models
+For installation and startup details, refer to [MinerU Installation and Startup Guide](src/providers/pdf/mineru/MinerU_Pipeline_啟動指南.md)
 ```bash
 mineru-models-download --model_type pipeline
 ```
 
-### 第三步：安裝項目相關依賴
+### Step 3: Install Project Dependencies
 
 ```bash
 pip install -e .[all]
 ```
 
-### 第四步（可選）：啟動 MinerU VLM 服務
+### Step 4 (Optional): Start MinerU VLM Service
 
-如果需要透過 MinerU VLM 針對表格進行特別解析，請透過 vllm 啟動：
+If you need special table parsing through MinerU VLM, start it via vllm:
 
 ```bash
 vllm serve opendatalab/MinerU2.5-2509-1.2B --host 0.0.0.0 --port 8000 \
   --logits-processors mineru_vl_utils:MinerULogitsProcessor
 ```
 
-### 第五步（重要）：安裝 LibreOffice
+### Step 5 (Important): Install LibreOffice
 
-**使用 MinerU 處理 DOCX 和 PPTX 文件時必須安裝 LibreOffice**
+**LibreOffice installation is required when using MinerU to process DOCX and PPTX files**
 
-MinerU 在處理 DOCX 和 PPTX 文件時，需要先透過 LibreOffice 將其轉換為 PDF，再進行解析。
+When processing DOCX and PPTX files, MinerU needs to first convert them to PDF via LibreOffice before parsing.
 
-#### 快速安裝（Ubuntu / Debian）
+#### Quick Installation (Ubuntu / Debian)
 
 ```bash
-# 安裝 LibreOffice
+# Install LibreOffice
 apt update
 apt install -y libreoffice
 
-# 安裝中文字型（避免轉換後的 PDF 出現中文亂碼）
+# Install Chinese fonts (to avoid garbled characters in converted PDFs)
 apt install -y fonts-noto-cjk
 ```
 
-#### macOS 系統
+#### macOS
 
 ```bash
 brew install --cask libreoffice
 ```
 
-#### 其他安裝方式
+#### Other Installation Methods
 
-- **本地 deb 安裝包**：詳見 [LibreOffice 安裝指南](src/providers/docx/LibreOffice_26.2_deb_安裝版指南.md)
-- **其他系統**：請參考 [LibreOffice 官方安裝指南](https://www.libreoffice.org/get-help/install-howto/)
+- **Local deb package**: See [LibreOffice Installation Guide](src/providers/docx/LibreOffice_26.2_deb_安裝版指南.md)
+- **Other systems**: Refer to [LibreOffice Official Installation Guide](https://www.libreoffice.org/get-help/install-howto/)
 
-## 快速開始
+## Quick Start
 
-### 統一接口使用（推薦）
+### Unified Interface Usage (Recommended)
 
-File2MD 提供了統一的入口類，可以自動根據配置文件處理所有支援的文件格式：
+File2MD provides a unified entry class that can automatically process all supported file formats based on the configuration file:
 
 ```python
 from src.app.file2md import File2MD
 
-# 方法 1: 從環境變數或默認配置文件初始化
+# Method 1: Initialize from environment variables or default config file
 client = File2MD.from_env(default_path="configs/config.yaml")
 
-# 方法 2: 直接從指定配置文件初始化
+# Method 2: Initialize directly from a specified config file
 client = File2MD.from_yaml("configs/config.yaml")
 
-# 轉換單個或多個文件（自動檢測格式）
+# Convert single or multiple files (auto-detect format)
 results = client.convert([
     "./examples/demo1.pdf"
 ])
 
-# 查看轉換結果
+# View conversion results
 for item in results:
-    print(f"檔案: {item.input_path}")
-    print(f"格式: {item.fmt}")
-    print(f"使用 Provider: {item.provider}")
-    print(f"輸出路徑: {item.result.md_path}")
-    print(f"Markdown 內容:\n{item.result.md_text}")
+    print(f"File: {item.input_path}")
+    print(f"Format: {item.fmt}")
+    print(f"Provider used: {item.provider}")
+    print(f"Output path: {item.result.md_path}")
+    print(f"Markdown content:\n{item.result.md_text}")
 
-# 也可以指定輸出目錄
+# You can also specify output directory
 results = client.convert(
     input_paths=["./examples/demo1.pdf"],
     output_root="./custom_output"
 )
 ```
 
-#### 配置文件示例
+#### Configuration File Example
 
-在 `configs/config.yaml` 中配置各種格式的處理方式：
+Configure processing methods for various formats in `configs/config.yaml`:
 
 ```yaml
 file2md:
   output_root: "./output"
   prefer:
-    docx: "mammoth"  # 或 "mineru"
+    docx: "mammoth"  # or "mineru"
     excel: "excel"
     pdf: "mineru"
     pptx: "mineru"
@@ -309,53 +313,53 @@ converters:
       extra:
         extract_images: true
         keep_output: true
-        parse_image: true # 是否使用 llm(vlm) 解析圖片內容
+        parse_image: true # Whether to use llm(vlm) to parse image content
   pdf:
     mineru:
       extra:
         return_images: true
         keep_unzipped: true
         parse_image: true
-        parse_table_w_VLM: true # 是否使用 mineru vlm 進行表格解析(可以解決一些財務表格中的合併儲存格跟負責表格)
-        table_quality_threshold: 0.55 # 檢查表格品質threshold，可增強表格解析
+        parse_table_w_VLM: true # Whether to use mineru vlm for table parsing (can solve merged cells and complex tables in financial reports)
+        table_quality_threshold: 0.55 # Table quality threshold for enhanced table parsing
 ```
 
-#### 重要參數說明
+#### Important Parameter Description
 
-**llm 配置**
-- 用途：配置用於解析圖片內容的語言模型（VLM）
-- `default_model`: 指定使用的模型名稱，需對應 `models.yaml` 中定義的模型
-- `default_config_path`: 模型配置文件路徑
-- `default_params`: 模型推理參數
-  - `temperature`: 控制輸出隨機性（0-1），越低越確定
-  - `max_tokens`: 最大輸出長度
-- 應用場景：當文件中包含圖片（如 PDF、DOCX 中的圖表、示意圖等）時，使用 VLM 自動識別並解析圖片內容轉為文字描述
+**llm Configuration**
+- Purpose: Configure language models (VLM) for parsing image content
+- `default_model`: Specify model name, must correspond to models defined in `models.yaml`
+- `default_config_path`: Model configuration file path
+- `default_params`: Model inference parameters
+  - `temperature`: Controls output randomness (0-1), lower is more deterministic
+  - `max_tokens`: Maximum output length
+- Use case: When documents contain images (e.g., charts, diagrams in PDFs, DOCX), use VLM to automatically identify and parse image content into text descriptions
 
-**mineru_vlm 配置**
-- 用途：配置 MinerU VLM 服務，專門用於複雜表格解析
-- `default_server_url`: VLM 服務地址（需先透過 vllm 啟動 MinerU2.5-2509-1.2B 模型）
-- `default_backend`: 後端類型，通常使用 "http-client"
-- 應用場景：處理包含合併儲存格、複雜結構或財務報表等高難度表格時，提供更精確的表格識別能力
+**mineru_vlm Configuration**
+- Purpose: Configure MinerU VLM service, specifically for complex table parsing
+- `default_server_url`: VLM service address (requires starting MinerU2.5-2509-1.2B model via vllm first)
+- `default_backend`: Backend type, usually "http-client"
+- Use case: When processing tables with merged cells, complex structures, or financial reports that require more accurate table recognition
 
-**parse_image 參數**
-- 類型：布林值（true/false）
-- 用途：控制是否啟用圖片內容解析
-- 設為 `true`: 使用 `llm` 配置中的 VLM 模型解析圖片內容，將圖片轉為文字描述
-- 設為 `false`: 僅提取圖片但不進行內容解析
-- 注意：啟用後會增加處理時間和 API 成本，建議根據需求選擇性啟用
+**parse_image Parameter**
+- Type: Boolean (true/false)
+- Purpose: Controls whether to enable image content parsing
+- Set to `true`: Use VLM model configured in `llm` to parse image content, converting images to text descriptions
+- Set to `false`: Only extract images without content parsing
+- Note: Enabling increases processing time and API costs; choose selectively based on needs
 
-**parse_table_w_VLM 參數**
-- 類型：布林值（true/false）
-- 用途：控制是否使用 MinerU VLM 進行表格解析
-- 設為 `true`: 對於複雜表格（如合併儲存格、跨行跨列、財務報表等）使用 VLM 進行深度解析
-- 設為 `false`: 使用標準表格解析方法
-- 優勢：可大幅提升複雜表格的解析準確度，特別是財務、統計類表格
-- 前提：需要先啟動 MinerU VLM 服務（參考安裝步驟第四步）
+**parse_table_w_VLM Parameter**
+- Type: Boolean (true/false)
+- Purpose: Controls whether to use MinerU VLM for table parsing
+- Set to `true`: For complex tables (e.g., merged cells, spanning rows/columns, financial reports), use VLM for deep parsing
+- Set to `false`: Use standard table parsing methods
+- Advantage: Significantly improves parsing accuracy for complex tables, especially financial and statistical tables
+- Prerequisite: Must start MinerU VLM service first (refer to installation step 4)
 
 
-完整的配置文件範例請參考 [config.example.yaml](configs/config.example.yaml)。
+For complete configuration file examples, see [config.example.yaml](configs/config.example.yaml).
 
-在 `configs/model.yaml` 中配置各種多模態模型:
+Configure various multimodal models in `configs/model.yaml`:
 
 ```yaml
 params:
@@ -379,69 +383,69 @@ LLM_engines:
         local_base_url: "http://10.204.245.170:8963/v1"
         translate_to_cht: True # optional, whether to translate the input to Chinese Traditional
 ```
-完整的配置文件範例請參考 [models.example.yaml](configs/models.example.yaml)。
+For complete configuration file examples, see [models.example.yaml](configs/models.example.yaml).
 
-## API 使用
+## API Usage
 
-file2md 提供 RESTful API 服務，可透過 HTTP 請求進行文件轉換。
+file2md provides a RESTful API service for file conversion via HTTP requests.
 
-### 啟動 API 服務
+### Starting the API Service
 
-使用提供的啟動腳本來啟動 API 服務：
+Use the provided startup script to start the API service:
 
 ```bash
 bash start_api.sh
 ```
 
-### 環境變數配置
+### Environment Variable Configuration
 
-在啟動 API 前，可以透過環境變數自訂配置：
+Before starting the API, you can customize the configuration via environment variables:
 
 ```bash
-# file2md 核心設定
-export FILE2MD_CONFIG="./configs/config.yaml"     # 配置文件路徑
-export FILE2MD_MAX_BATCH=20                       # 單次請求最多處理的檔案數
-export FILE2MD_MAX_CONVERT_INFLIGHT=2             # 同一 worker 並發轉換數
-export FILE2MD_TMP_DIR="/tmp/file2md_uploads"     # 上傳暫存資料夾
+# file2md core configuration
+export FILE2MD_CONFIG="./configs/config.yaml"     # Configuration file path
+export FILE2MD_MAX_BATCH=20                       # Maximum files per request
+export FILE2MD_MAX_CONVERT_INFLIGHT=2             # Concurrent conversions per worker
+export FILE2MD_TMP_DIR="/tmp/file2md_uploads"     # Upload temporary directory
 
-# MinerU HTTP 客戶端設定
-export MINERU_RETRY=3                             # 重試次數
-export MINERU_BACKOFF=0.5                         # 重試延遲（秒）
-export MINERU_POOL_CONN=32                        # 連線池大小
-export MINERU_POOL_MAXSIZE=32                     # 連線池最大大小
+# MinerU HTTP client configuration
+export MINERU_RETRY=3                             # Retry count
+export MINERU_BACKOFF=0.5                         # Retry delay (seconds)
+export MINERU_POOL_CONN=32                        # Connection pool size
+export MINERU_POOL_MAXSIZE=32                     # Max connection pool size
 
-# API 伺服器設定
-export API_HOST="0.0.0.0"                         # 監聽地址
-export API_PORT=8000                              # 監聽埠號
-export API_WORKERS=1                              # Worker 進程數
+# API server configuration
+export API_HOST="0.0.0.0"                         # Listen address
+export API_PORT=8000                              # Listen port
+export API_WORKERS=1                              # Worker process count
 
-# 啟動服務
+# Start service
 bash start_api.sh
 ```
 
-### API 端點
+### API Endpoints
 
-啟動後，API 服務將在 `http://localhost:8000` 上運行（預設），你可以透過以下方式使用：
+Once started, the API service will run on `http://localhost:8000` (default), and you can use it via:
 
-- **轉換端點**: `POST http://localhost:8000/convert`
-- **API 文檔**: `http://localhost:8000/docs` - Swagger UI 互動式文檔
+- **Conversion endpoint**: `POST http://localhost:8000/convert`
+- **API documentation**: `http://localhost:8000/docs` - Swagger UI interactive documentation
 
-### API 使用範例
+### API Usage Examples
 
-#### 基本使用
+#### Basic Usage
 
 ```python
 import requests
 
-# 轉換單個文件
+# Convert single file
 with open("document.docx", "rb") as f:
     files = {"files": ("document.docx", f, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")}
-    data = {"keep_uploads": "false"}  # 是否保留上傳的檔案
+    data = {"keep_uploads": "false"}  # Whether to keep uploaded files
     response = requests.post("http://localhost:8000/convert", files=files, data=data)
     result = response.json()
     print(result)
 
-# 批量轉換多個文件
+# Batch convert multiple files
 with open("doc1.docx", "rb") as f1, \
      open("data.xlsx", "rb") as f2, \
      open("report.pdf", "rb") as f3:
@@ -455,51 +459,51 @@ with open("doc1.docx", "rb") as f1, \
     results = response.json().get('results', [])
 ```
 
-#### 處理返回的圖片
+#### Processing Returned Images
 
-API 支援回傳文件中提取的圖片（以 base64 編碼），範例如下：
+The API supports returning images extracted from documents (encoded in base64), example:
 
 ```python
 import requests
 import base64
 import os
 
-# 轉換帶有圖片的文件（如 PDF、DOCX 等）
+# Convert files with images (e.g., PDF, DOCX, etc.)
 with open("document.pdf", "rb") as f:
     files = {"files": ("document.pdf", f, "application/pdf")}
     data = {"keep_uploads": "false"}
     response = requests.post("http://localhost:8000/convert", files=files, data=data)
     results = response.json().get('results', [])
 
-# 處理每個轉換結果
+# Process each conversion result
 for idx, result in enumerate(results):
-    # 取得 Markdown 內容
+    # Get Markdown content
     md_content = result.get('md_content')
     if md_content:
-        # 儲存 Markdown 檔案
+        # Save Markdown file
         os.makedirs("output", exist_ok=True)
         with open(f"output/result_{idx}.md", "w", encoding="utf-8") as f:
             f.write(md_content)
-        print(f"已儲存 Markdown: output/result_{idx}.md")
+        print(f"Saved Markdown: output/result_{idx}.md")
     
-    # 處理圖片（如果有）
+    # Process images (if any)
     images = result.get('images', [])
     if images:
         images_dir = f"output/images_{idx}"
         os.makedirs(images_dir, exist_ok=True)
         
         for img_idx, img in enumerate(images):
-            # 圖片可能是字典或字串
+            # Image may be dictionary or string
             b64str = None
             filename = None
             
             if isinstance(img, dict):
-                # 嘗試從字典中取得 base64 資料
+                # Try to get base64 data from dictionary
                 for key in ("data", "b64", "base64", "content", "src"):
                     if key in img and img[key]:
                         b64str = img[key]
                         break
-                # 嘗試取得檔名
+                # Try to get filename
                 for key in ("name", "filename", "file", "path"):
                     if key in img and img[key]:
                         filename = img[key]
@@ -507,14 +511,14 @@ for idx, result in enumerate(results):
             elif isinstance(img, str):
                 b64str = img
             
-            # 處理 data URI 格式（如 "data:image/png;base64,..."）
+            # Handle data URI format (e.g., "data:image/png;base64,...")
             if isinstance(b64str, str) and b64str.startswith("data:") and "," in b64str:
                 b64str = b64str.split(",", 1)[1]
             
             if not b64str:
                 continue
             
-            # 解碼並儲存圖片
+            # Decode and save image
             try:
                 img_bytes = base64.b64decode(b64str)
                 if not filename:
@@ -523,12 +527,12 @@ for idx, result in enumerate(results):
                 img_path = os.path.join(images_dir, filename)
                 with open(img_path, "wb") as f:
                     f.write(img_bytes)
-                print(f"已儲存圖片: {img_path}")
+                print(f"Saved image: {img_path}")
             except Exception as e:
-                print(f"解碼圖片失敗: {e}")
+                print(f"Failed to decode image: {e}")
 ```
 
-#### 使用 httpx 進行非同步請求
+#### Using httpx for Async Requests
 
 ```python
 import asyncio
@@ -550,11 +554,11 @@ async def convert_files():
             resp = await client.post(url, files=files, data=data, timeout=120.0)
             results = resp.json().get('results', [])
             
-            # 處理結果
+            # Process results
             for result in results:
                 md_content = result.get('md_content')
                 images = result.get('images', [])
-                # ... 處理 Markdown 和圖片
+                # ... Process Markdown and images
 
 asyncio.run(convert_files())
 ```
