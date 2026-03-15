@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import mimetypes
 import os
 from dataclasses import dataclass
@@ -290,6 +291,7 @@ class File2MD:
         mineru_markdown_extractor: Optional[MinerUMarkdownExtractor] = None,
         owns_mineru_markdown_extractor: Optional[bool] = None,
     ):
+        self.logger = self._setup_logger()
         self.cfg = cfg
         inflight = int(os.getenv("FILE2MD_MAX_CONVERT_INFLIGHT", "4"))
         self._convert_sem = asyncio.Semaphore(inflight)
@@ -303,10 +305,15 @@ class File2MD:
         self._mineru_session = mineru_session
         
         if mineru_markdown_extractor is None:
-            mineru_markdown_extractor = MinerUMarkdownExtractor(
-                server_url=get_mineru_markdown_extractor_base_url(cfg),
-                backend=get_mineru_markdown_extractor_backend(cfg),
-            )
+            try:
+                mineru_markdown_extractor = MinerUMarkdownExtractor(
+                    server_url=get_mineru_markdown_extractor_base_url(cfg),
+                    backend=get_mineru_markdown_extractor_backend(cfg),
+                )
+            except Exception as e:
+                mineru_markdown_extractor = None
+                self.logger.warning(f"跳過 MinerUMarkdownExtractor 初始化，相關功能將受限：{e}")
+                
             self._owns_mineru_markdown_extractor = True if owns_mineru_markdown_extractor is None else owns_mineru_markdown_extractor
         else:
             self._owns_mineru_markdown_extractor = False if owns_mineru_markdown_extractor is None else owns_mineru_markdown_extractor
@@ -321,6 +328,17 @@ class File2MD:
         else:
             self._owns_llm_client = False if owns_llm_client is None else owns_llm_client
         self._llm_client = llm_client
+        
+    def _setup_logger(self) -> logging.Logger:
+        logger = logging.getLogger(self.__class__.__name__)
+        if not logger.handlers:
+            handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter(
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            ))
+            logger.addHandler(handler)
+            logger.setLevel(logging.INFO)
+        return logger    
         
     def close(self) -> None:
         """Call this on API shutdown if File2MD owns the session."""

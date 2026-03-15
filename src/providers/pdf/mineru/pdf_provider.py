@@ -391,9 +391,9 @@ class PDFMinerUProvider(BaseProvider):
         if not parse_table_w_VLM:
             return results
         # Implement the table parsing logic here
-        if not self.llm_client:
+        if not self.markdown_extractor:
             if self.verbose:
-                self.logger.warning("LLM client not initialized; skipping table parsing.")
+                self.logger.warning("Markdown extractor not initialized; skipping table parsing.")
             return results
         # step 1: collect all table from the results
         table_tasks = []

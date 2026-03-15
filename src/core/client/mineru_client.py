@@ -17,19 +17,21 @@ class MinerUMarkdownExtractor:
         images_dir: str = None,
     ):  
         self.logger = self._default_logger()
-        try:
-            self.client = MinerUClient(backend=backend, server_url=server_url)
-        except Exception as e:
-            self.client = None
-            self.logger.error(f"初始化 MinerUClient 失敗：{e}")
+        self.client = MinerUClient(backend=backend, server_url=server_url)
         self.images_dir = images_dir
         if self.images_dir:
             os.makedirs(self.images_dir, exist_ok=True)
             
-    def _default_logger(self):
-        logger = logging.getLogger("LLMChatLogger")
-        logger.addHandler(logging.NullHandler())
-        return logger        
+    def _setup_logger(self) -> logging.Logger:
+        logger = logging.getLogger(self.__class__.__name__)
+        if not logger.handlers:
+            handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter(
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            ))
+            logger.addHandler(handler)
+            logger.setLevel(logging.INFO)
+        return logger     
 
     @staticmethod
     def _sanitize_text(text: str) -> str:
