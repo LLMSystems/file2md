@@ -193,8 +193,8 @@ llm: # parse images
     temperature: 0.2
     max_tokens: 2000
 
-mineru_vlm:
-  default_server_url: "http://10.204.245.170:8963"
+mineru_vlm: # parse table by MinerU2.5-2509-1.2B
+  default_server_url: "http://localhost:8963"
   default_backend: "http-client"
 
 providers:
@@ -212,14 +212,49 @@ converters:
       extra:
         extract_images: true
         keep_output: true
-        parse_image: true # parse file images
+        parse_image: true # 是否使用 llm(vlm) 解析圖片內容
   pdf:
     mineru:
       extra:
         return_images: true
         keep_unzipped: true
         parse_image: true
+        parse_table_w_VLM: true # 是否使用 mineru vlm 進行表格解析(可以解決一些財務表格中的合併儲存格跟負責表格)
+        table_quality_threshold: 0.55 # 檢查表格品質threshold，可增強表格解析
 ```
+
+#### 重要參數說明
+
+**llm 配置**
+- 用途：配置用於解析圖片內容的語言模型（VLM）
+- `default_model`: 指定使用的模型名稱，需對應 `models.yaml` 中定義的模型
+- `default_config_path`: 模型配置文件路徑
+- `default_params`: 模型推理參數
+  - `temperature`: 控制輸出隨機性（0-1），越低越確定
+  - `max_tokens`: 最大輸出長度
+- 應用場景：當文件中包含圖片（如 PDF、DOCX 中的圖表、示意圖等）時，使用 VLM 自動識別並解析圖片內容轉為文字描述
+
+**mineru_vlm 配置**
+- 用途：配置 MinerU VLM 服務，專門用於複雜表格解析
+- `default_server_url`: VLM 服務地址（需先透過 vllm 啟動 MinerU2.5-2509-1.2B 模型）
+- `default_backend`: 後端類型，通常使用 "http-client"
+- 應用場景：處理包含合併儲存格、複雜結構或財務報表等高難度表格時，提供更精確的表格識別能力
+
+**parse_image 參數**
+- 類型：布林值（true/false）
+- 用途：控制是否啟用圖片內容解析
+- 設為 `true`: 使用 `llm` 配置中的 VLM 模型解析圖片內容，將圖片轉為文字描述
+- 設為 `false`: 僅提取圖片但不進行內容解析
+- 注意：啟用後會增加處理時間和 API 成本，建議根據需求選擇性啟用
+
+**parse_table_w_VLM 參數**
+- 類型：布林值（true/false）
+- 用途：控制是否使用 MinerU VLM 進行表格解析
+- 設為 `true`: 對於複雜表格（如合併儲存格、跨行跨列、財務報表等）使用 VLM 進行深度解析
+- 設為 `false`: 使用標準表格解析方法
+- 優勢：可大幅提升複雜表格的解析準確度，特別是財務、統計類表格
+- 前提：需要先啟動 MinerU VLM 服務（參考安裝步驟第四步）
+
 
 完整的配置文件範例請參考 [config.example.yaml](configs/config.example.yaml)。
 
