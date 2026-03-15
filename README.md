@@ -105,6 +105,51 @@ flowchart TD
 - **圖片**: PNG, JPG 等圖片格式
 - **網頁**: HTML
 
+## 專案結構
+
+```
+file2md/
+├── src/                          # 源代碼目錄
+│   ├── app/                      # 應用層
+│   │   ├── file2md.py           # File2MD 主類（統一轉換入口）
+│   │   ├── config.py            # 配置管理
+│   │   ├── http.py              # HTTP 客戶端
+│   │   └── api/                 # RESTful API 實現
+│   ├── converters/              # 格式轉換器
+│   │   ├── base_converter.py   # 轉換器基類
+│   │   ├── docx/                # Word 文檔轉換器
+│   │   ├── excel/               # Excel 表格轉換器
+│   │   ├── pdf/                 # PDF 轉換器
+│   │   ├── pptx/                # PowerPoint 轉換器
+│   │   ├── image/               # 圖片轉換器
+│   │   ├── html/                # HTML 轉換器
+│   │   └── txt/                 # 文本轉換器
+│   ├── providers/               # 後端服務提供者
+│   │   ├── pdf/                 # PDF Provider
+│   │   ├── excel/               # Excel Provider
+│   │   ├── html/                # HTML Provider
+│   │   └── txt/                 # TXT Provider
+│   └── core/                    # 核心模組
+│       ├── types.py             # 類型定義
+│       ├── errors.py            # 錯誤處理
+│       └── client/              # 客戶端實現（LLM、VLM等）
+├── configs/                     # 配置文件
+│   ├── config.example.yaml      # 配置範例
+│   └── models.example.yaml      # 模型配置範例
+├── test/                        # 測試文件
+├── pyproject.toml               # 專案配置（依賴、打包等）
+├── start_api.sh                 # API 服務啟動腳本
+└── README.md                    # 專案說明文檔
+```
+
+### 核心模組說明
+
+- **app/file2md.py**: 提供統一的 `File2MD` 類，自動根據文件類型選擇對應的轉換器
+- **converters/**: 每種格式都有對應的轉換器，負責協調 Provider 完成轉換
+- **providers/**: 實際執行轉換的後端服務（如 MinerU、Mammoth 等）
+- **core/client/**: LLM 和 VLM 客戶端，用於圖片解析和表格增強
+- **app/api/**: FastAPI 實現的 RESTful API 服務
+
 ## 安裝
 
 ### 第一步：安裝 MinerU
