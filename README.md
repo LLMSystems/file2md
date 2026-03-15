@@ -180,7 +180,7 @@ pip install -e .[mineru]
 ```
 
 ### 第二步：下載 MinerU 相關模型
-
+安裝&啟動細節可參考 [MinerU 安裝啟動指南](src/providers/pdf/mineru/MinerU_Pipeline_啟動指南.md)
 ```bash
 mineru-models-download --model_type pipeline
 ```
