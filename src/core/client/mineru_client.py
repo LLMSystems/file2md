@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 from html import unescape
@@ -15,14 +16,20 @@ class MinerUMarkdownExtractor:
         backend: str = "http-client",
         images_dir: str = None,
     ):  
+        self.logger = self._default_logger()
         try:
             self.client = MinerUClient(backend=backend, server_url=server_url)
         except Exception as e:
             self.client = None
-            print(f"初始化 MinerUClient 失敗：{e}")
+            self.logger.error(f"初始化 MinerUClient 失敗：{e}")
         self.images_dir = images_dir
         if self.images_dir:
             os.makedirs(self.images_dir, exist_ok=True)
+            
+    def _default_logger(self):
+        logger = logging.getLogger("LLMChatLogger")
+        logger.addHandler(logging.NullHandler())
+        return logger        
 
     @staticmethod
     def _sanitize_text(text: str) -> str:
