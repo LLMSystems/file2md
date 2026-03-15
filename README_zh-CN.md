@@ -1,5 +1,3 @@
-# file2md
-
 <p align="center">
   <img src="assets/file2md_structure.png" width="700px" style="vertical-align:middle;">
 </p>

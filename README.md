@@ -1,12 +1,12 @@
-# file2md
-
-
-[English](README.md) | [中文](README_zh-CN.md)
-
-
 <p align="center">
   <img src="assets/file2md_structure.png" width="700px" style="vertical-align:middle;">
 </p>
+
+<div align="center" xmlns="http://www.w3.org/1999/html">
+
+[English](README.md) | [中文](README_zh-CN.md)
+
+</div>
 
 file2md is a versatile tool for converting multiple file formats to Markdown. It supports various formats including text, documents, spreadsheets, presentations, PDFs, images, and web pages, with flexible configuration options and multi-engine support. Whether processing single files or batch conversions, file2md efficiently handles the task while supporting image extraction from documents, image content parsing, and advanced features like optimized table extraction. Its modular architecture allows users to select different processing engines based on their needs, catering to diverse application scenarios.
 
