@@ -44,7 +44,7 @@ converters:
         keep_output: true
         default_convert_image_format: "png"
         image_alt_text: ""
-        parse_image: true
+        parse_image: false
     mineru:
       extra: 
         return_images: true
@@ -54,8 +54,8 @@ converters:
         return_images: true
         return_middle_json: true
         response_format_zip: true
-        parse_image: true
-        parse_table_w_VLM: true
+        parse_image: false
+        parse_table_w_VLM: false
         table_quality_threshold: 0.55
   pdf:
     mineru:
@@ -68,7 +68,7 @@ converters:
         return_middle_json: true
         response_format_zip: true
         parse_image: false
-        parse_table_w_VLM: true
+        parse_table_w_VLM: false
         table_quality_threshold: 0.55
   pptx:
     mineru:
@@ -80,8 +80,8 @@ converters:
         return_images: true
         return_middle_json: true
         response_format_zip: true
-        parse_image: true
-        parse_table_w_VLM: true
+        parse_image: false
+        parse_table_w_VLM: false
         table_quality_threshold: 0.55
   html:
     beautifulsoup:
