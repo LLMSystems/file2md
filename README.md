@@ -200,6 +200,34 @@ vllm serve opendatalab/MinerU2.5-2509-1.2B --host 0.0.0.0 --port 8000 \
   --logits-processors mineru_vl_utils:MinerULogitsProcessor
 ```
 
+### 第五步（重要）：安裝 LibreOffice
+
+**使用 MinerU 處理 DOCX 和 PPTX 文件時必須安裝 LibreOffice**
+
+MinerU 在處理 DOCX 和 PPTX 文件時，需要先透過 LibreOffice 將其轉換為 PDF，再進行解析。
+
+#### 快速安裝（Ubuntu / Debian）
+
+```bash
+# 安裝 LibreOffice
+apt update
+apt install -y libreoffice
+
+# 安裝中文字型（避免轉換後的 PDF 出現中文亂碼）
+apt install -y fonts-noto-cjk
+```
+
+#### macOS 系統
+
+```bash
+brew install --cask libreoffice
+```
+
+#### 其他安裝方式
+
+- **本地 deb 安裝包**：詳見 [LibreOffice 安裝指南](src/providers/docx/LibreOffice_26.2_deb_安裝版指南.md)
+- **其他系統**：請參考 [LibreOffice 官方安裝指南](https://www.libreoffice.org/get-help/install-howto/)
+
 ## 快速開始
 
 ### 統一接口使用（推薦）
