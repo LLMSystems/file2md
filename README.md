@@ -151,9 +151,7 @@ client = File2MD.from_yaml("configs/config.yaml")
 
 # 轉換單個或多個文件（自動檢測格式）
 results = client.convert([
-    "./docs/test.docx", 
-    "./data/report.xlsx", 
-    "./images/chart.png"
+    "./examples/demo1.pdf"
 ])
 
 # 查看轉換結果
@@ -162,10 +160,11 @@ for item in results:
     print(f"格式: {item.fmt}")
     print(f"使用 Provider: {item.provider}")
     print(f"輸出路徑: {item.result.md_path}")
+    print(f"Markdown 內容:\n{item.result.md_text}")
 
 # 也可以指定輸出目錄
 results = client.convert(
-    input_paths=["./docs/test.docx"],
+    input_paths=["./examples/demo1.pdf"],
     output_root="./custom_output"
 )
 ```
@@ -461,3 +460,7 @@ async def convert_files():
 
 asyncio.run(convert_files())
 ```
+
+## License
+
+This project is licensed under the MIT License.
