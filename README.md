@@ -105,6 +105,27 @@ flowchart TD
 - **圖片**: PNG, JPG 等圖片格式
 - **網頁**: HTML
 
+## 功能需求對照
+
+不同功能對於額外安裝和外部服務的需求說明：
+
+| 功能              | 是否需要額外安裝 | 是否需要外部服務 |
+| --------------- | -------: | -------: |
+| TXT             |        否 |        否 |
+| HTML            |        否 |        否 |
+| DOCX (mammoth)  |        否 |        否 |
+| DOCX (mineru)    |        是 |        是 |
+| PDF (mineru)    |        是 |        是 |
+| PPT (mineru)    |        是 |        是 |
+| Table VLM parse |        是 |        是 |
+| Image parse     |        是 |        是 |
+
+**說明**：
+- **TXT / HTML / DOCX**：基礎功能，無需額外依賴，只需要安裝 `pip install -e .[all]` 即可
+- **PDF (mineru) / DOCX (mineru) / PPT (mineru)**：需要安裝 MinerU，可能需要外部 GPU 資源（視文件複雜度）
+- **Table VLM parse**：需要啟動 MinerU VLM 服務（見安裝步驟第四步）
+- **Image parse**：需要配置 LLM/VLM 服務（OpenAI、Anthropic、本地模型等）
+
 ## 專案結構
 
 ```
