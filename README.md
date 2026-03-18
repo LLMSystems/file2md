@@ -155,6 +155,9 @@ file2md/
 │   │   └── txt/                 # Text converter
 │   ├── providers/               # Backend service providers
 │   │   ├── pdf/                 # PDF Provider
+│   │   ├── pptx/                # PowerPoint Provider
+│   │   ├── docx/                # Word document Provider
+│   │   ├── image/               # Image Provider
 │   │   ├── excel/               # Excel Provider
 │   │   ├── html/                # HTML Provider
 │   │   └── txt/                 # TXT Provider

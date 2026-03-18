@@ -149,6 +149,9 @@ file2md/
 │   │   └── txt/                 # 文本轉換器
 │   ├── providers/               # 後端服務提供者
 │   │   ├── pdf/                 # PDF Provider
+│   │   ├── pptx/                # PowerPoint Provider
+│   │   ├── docx/                # Word document Provider
+│   │   ├── image/               # Image Provider
 │   │   ├── excel/               # Excel Provider
 │   │   ├── html/                # HTML Provider
 │   │   └── txt/                 # TXT Provider
