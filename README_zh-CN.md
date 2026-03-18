@@ -2,7 +2,12 @@
   <img src="assets/file2md_structure.png" width="700px" style="vertical-align:middle;">
 </p>
 
+
+<div align="center" xmlns="http://www.w3.org/1999/html">
+
 file2md是一個將多種文件格式轉換為 Markdown 的工具。它支援包括文本、文檔、表格、簡報、PDF、圖片及網頁在內的多種格式，並提供靈活的配置選項與多引擎支援。無論是單一文件還是批量處理，file2md 都能高效完成轉換，並支援從文檔中提取圖片及解析圖片中的內容，以及優化表格擷取等進階功能。其模組化架構允許用戶根據需求選擇不同的處理引擎，滿足多樣化的應用場景。
+
+</div>
 
 ## 架構
 ```mermaid
