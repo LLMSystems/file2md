@@ -10,8 +10,8 @@ file2md:
     image: "mineru"
 
 llm:
-  default_model: "gpt-4o"
-  default_config_path: "./configs/models.yaml"
+  default_model: "Gemma-3-12B-IT"
+  default_config_path: "./configs/models.example.yaml"
   default_params:
     temperature: 0.2
     max_tokens: 10000
