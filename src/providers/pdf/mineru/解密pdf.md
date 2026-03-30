@@ -10,18 +10,18 @@
 
 - **FIPS mode 環境**：系統啟用 FIPS 模式導致加密演算法受限
 - **MD5/FIPS 錯誤**：使用 `pypdf` 讀取 PDF 時出現 MD5 或 FIPS 相關錯誤
-- **假性加密**：PDF 檔案可正常開啟，但 `is_encrypted == True`
+- PDF 檔案可正常開啟，但 `is_encrypted == True`
 
 ## 功能
 
-- 支援 **無密碼 PDF**（最常見情況）
+- 支援 **無密碼 PDF**（最常見情況，PDF 檔案可正常開啟，但 `is_encrypted == True`）
 - 支援 **有密碼 PDF**（需提供密碼）
 
 ---
 
 ## 快速開始
 
-### 1️建立 Docker Image
+### 建立 Docker Image
 
 使用專案中的 Dockerfile 建立映像檔：
 
@@ -36,9 +36,9 @@ docker build -t qpdf-only .
 podman build -t qpdf-only .
 ```
 
-### 2️解密 PDF 檔案
+### 解密 PDF 檔案
 
-#### 無密碼 PDF（推薦）
+#### 無密碼 PDF (PDF 檔案可正常開啟，但 `is_encrypted == True`)
 
 ```bash
 docker run --rm \
