@@ -84,6 +84,7 @@ class PDFMinerUProvider(BaseProvider):
         strict_zip_content_type: bool = False,
         verbose: bool = True,
         default_backend: str = "pipeline",
+        default_server_url: Optional[str] = None,
         default_return_images: bool = True,
         default_return_middle_json: bool = True,
         default_return_model_output: bool = True,
@@ -108,6 +109,7 @@ class PDFMinerUProvider(BaseProvider):
         self.verbose = verbose
 
         self.default_backend = default_backend
+        self.default_server_url = default_server_url # only for vlm-http-client backend
         self.default_return_images = default_return_images
         self.default_return_middle_json = default_return_middle_json
         self.default_return_model_output = default_return_model_output
@@ -189,6 +191,7 @@ class PDFMinerUProvider(BaseProvider):
 
         backend             = options.extra.get("backend", self.default_backend)
         parse_method        = options.extra.get("parse_method", self.default_parse_method)
+        server_url          = options.extra.get("server_url", self.default_server_url) or self.default_server_url
         keep_unzipped       = bool(options.extra.get("keep_unzipped", True))
         return_images       = options.extra.get("return_images",        self.default_return_images)
         return_middle_json  = options.extra.get("return_middle_json",   self.default_return_middle_json)
@@ -206,6 +209,7 @@ class PDFMinerUProvider(BaseProvider):
         old_map = self.convert_pdfs(
             pdf_paths=pdfs,
             backend=backend,
+            server_url=server_url,
             return_images=return_images,
             return_middle_json=return_middle_json,
             return_model_output=return_model_output,
@@ -292,6 +296,7 @@ class PDFMinerUProvider(BaseProvider):
         pdf_paths: List[str | Path],
         *,
         backend: Optional[str] = None,
+        server_url: Optional[str] = None,
         return_images: Optional[bool] = None,
         return_middle_json: Optional[bool] = None,
         return_model_output: Optional[bool] = None,
@@ -320,6 +325,7 @@ class PDFMinerUProvider(BaseProvider):
 
         form = self._build_form_data(
             backend=backend,
+            server_url=server_url,
             return_images=return_images,
             return_middle_json=return_middle_json,
             return_model_output=return_model_output,
@@ -693,6 +699,7 @@ class PDFMinerUProvider(BaseProvider):
         self,
         *,
         backend: Optional[str],
+        server_url: Optional[str],
         return_images: Optional[bool],
         return_middle_json: Optional[bool],
         return_model_output: Optional[bool],
@@ -705,10 +712,16 @@ class PDFMinerUProvider(BaseProvider):
         """
         def b(v: Optional[bool], default: bool) -> str:
             return str((default if v is None else v)).lower()
+        
+        if backend != "vlm-http-client" and server_url is not None:
+            if self.verbose:
+                self.logger.warning(f"server_url parameter is only applicable for vlm-http-client backend; ignoring server_url={server_url} for backend={backend}") 
+            server_url = None  # 只有 vlm-http-client 會用到 server_url 參數
 
         return {
             "output_dir": str(self.output_root),
             "backend": backend or self.default_backend,
+            "server_url": server_url,
             "return_images": b(return_images, self.default_return_images),
             "return_middle_json": b(return_middle_json, self.default_return_middle_json),
             "return_model_output": b(return_model_output, self.default_return_model_output),

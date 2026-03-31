@@ -22,12 +22,13 @@ mineru_vlm:
 
 providers:
   mineru:
-    base_url: "http://10.204.245.170:8963/"
+    base_url: "http://10.204.245.170:8968/"
     timeout_sec: 600
     retry: 2
     default_extra:
-      backend: "pipeline"
+      backend: "vlm-http-client" # pipeline, vlm-auto-engine
       parse_method: "auto"
+      server_url: "http://10.204.245.170:8963" # only for vlm-http-client backend
 
 converters:
   txt:
