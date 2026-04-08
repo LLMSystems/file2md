@@ -836,10 +836,15 @@ class PDFMinerUProvider(BaseProvider):
 
         if draw_span:
             name = f"{pdf_basename}_span.pdf"
-            draw_span_bbox(pdf_info, source_pdf_bytes, out_dir, name)
-            results["span_pdf"] = out_dir / name
-            if self.verbose:
-                self.logger.info(f"Span bbox → {results['span_pdf']}")
+            try:
+                draw_span_bbox(pdf_info, source_pdf_bytes, out_dir, name)
+                results["span_pdf"] = out_dir / name
+                if self.verbose:
+                    self.logger.info(f"Span bbox → {results['span_pdf']}")
+            except Exception as e:
+                if self.verbose:
+                    self.logger.warning(f"Warn: failed to draw span bbox for {pdf_basename}: {e}")
+                results["span_pdf"] = None
 
         return results
 
